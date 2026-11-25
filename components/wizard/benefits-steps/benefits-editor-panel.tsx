@@ -2682,6 +2682,8 @@ export function BenefitsEditorPanel({
           <div className="mt-4 rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
             <HelpCardLayoutEditor
               value={helpCardLayoutValue}
+              // The plan, so "Edit Topic" can upload a document for one card.
+              planId={step1Data.planId}
               // 3 or 4 across, stored beside the layout it belongs to.
               columns={step1Data.helpCardColumns}
               onColumnsChange={(helpCardColumns) =>

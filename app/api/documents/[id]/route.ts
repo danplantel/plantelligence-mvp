@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { R2_FILEURL_PLACEHOLDER, isR2Configured } from "@/lib/r2";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
 import { resolvePlanAccess } from "@/lib/teammates/access.server";
+import { detachDocumentFromPlanTopics } from "@/lib/topics/detach-document.server";
 
 export async function PATCH(
   request: NextRequest,
@@ -286,6 +287,24 @@ export async function DELETE(
     await prisma.document.delete({
       where: { id: documentId },
     });
+
+    // A topic stores only document ids, so the deleted row would leave every card
+    // that attached it pointing at nothing — "no longer in the library" in the
+    // editor, missing from the portal. Detach it at the source. Best-effort: the
+    // row is already gone, and a failure here must not report the delete as failed.
+    try {
+      const detached = await detachDocumentFromPlanTopics(
+        document.clientId,
+        documentId,
+      );
+      if (detached > 0) {
+        console.log(
+          `[DELETE /api/documents/${documentId}] detached from ${detached} topic placement(s)`,
+        );
+      }
+    } catch (detachError) {
+      console.error("[documents] topic detach failed:", detachError);
+    }
 
     return NextResponse.json({
       success: true,

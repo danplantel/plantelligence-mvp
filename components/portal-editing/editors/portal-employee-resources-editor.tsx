@@ -915,6 +915,8 @@ export function PortalEmployeeResourcesEditor() {
           <div className="rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
             <HelpCardLayoutEditor
               value={helpDraft.helpCards}
+              // The plan, so "Edit Topic" can upload a document for one card.
+              planId={planId}
               columns={helpDraft.helpCardColumns}
               onColumnsChange={(helpCardColumns) =>
                 updateHelp({ helpCardColumns })

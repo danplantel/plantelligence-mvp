@@ -1711,6 +1711,37 @@ describe("HowCanWeHelpSection features placements", () => {
     topic("hsa-fsa-resources", "HSA / FSA", 4),
   ];
 
+  it("shows a document that belongs to the card alone", async () => {
+    const user = userEvent.setup();
+    // A `topic_document` block: title + link stored on the placement, so it never
+    // reaches the benefit's Documents & Forms list.
+    const ownDocument: EffectiveTopic = {
+      ...topic("401k-loans", "Can I take a loan?", 0),
+      bodyBlocks: [
+        { type: "quick_answer", text: "Yes, within limits." },
+        {
+          type: "topic_document",
+          title: "Loan request form",
+          url: "https://ssa.test/loan.pdf",
+        },
+      ],
+    };
+
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Group Health"
+        topics={[ownDocument]}
+      />,
+    );
+
+    await openCard(user, container, "sys.401k-loans");
+
+    const link = await screen.findByRole("link", { name: /Loan request form/ });
+    expect(link).toHaveAttribute("href", "https://ssa.test/loan.pdf");
+    expect(link).toHaveAttribute("data-resource-kind", "topic-document");
+  });
+
   it("gives the first four of eight cards two columns each with 4 across", () => {
     // Account Access + seven Featured topics is a full page of eight cards.
     const seven = [

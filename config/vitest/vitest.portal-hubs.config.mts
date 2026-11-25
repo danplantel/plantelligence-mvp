@@ -73,6 +73,12 @@ const portalHubTests = [
   "components/portal-editing/__tests__/portal-draft-badge.test.tsx",
   // The comparison behind "is this actually a change?" (revert clears the badge)
   "lib/__tests__/portal-draft-compare.test.ts",
+  // Topic text overrides: the steps/answer the Edit Topic dialog writes, and the
+  // documents that belong to ONE card instead of the benefit's document list
+  "lib/topics/__tests__/text-overrides.test.ts",
+  // Attaching a file from the computer to one card: AI naming, storage, and the
+  // private category that keeps it off the benefit's Documents & Forms list
+  "lib/topics/__tests__/upload-topic-document.test.ts",
   // Employee Resources' three blue buttons: each names its own panel section
   "app/(portal)/[id]/employee-resources/__tests__/page-edit-affordances.test.tsx",
   // A benefit hub's five blue buttons (one template, four pages)

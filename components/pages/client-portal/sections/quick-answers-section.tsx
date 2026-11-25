@@ -52,6 +52,7 @@ import {
 import { ActionHubPanel } from "./action-hub-panel";
 import {
   topicDocumentIdsOf,
+  topicDocumentsOf,
   topicVideoIdsOf,
 } from "@/lib/topics/text-overrides";
 import type {
@@ -393,6 +394,12 @@ function TopicAnswer({
   const attachedVideos: PlanMediaVideo[] = topicVideoIdsOf(topic)
     .map((id) => media?.videos[id])
     .filter((video): video is PlanMediaVideo => Boolean(video));
+  /**
+   * Documents that belong to this ANSWER alone — a title + link stored on the
+   * placement. They are not in the plan's library, so they never appear on the
+   * benefit's Documents & Forms list.
+   */
+  const topicDocuments = topicDocumentsOf(topic);
 
   return (
     <div className="space-y-3">
@@ -456,9 +463,12 @@ function TopicAnswer({
         </div>
       )}
 
-      {/* Documents & videos attached to this topic, resolved from THIS plan's
-          library. A document opens in a new tab; a video plays in a lightbox. */}
-      {(attachedDocuments.length > 0 || attachedVideos.length > 0) && (
+      {/* Documents & videos attached to this answer: the plan's library, then the
+          documents that belong to this answer alone. A document opens in a new
+          tab; a video plays in a lightbox. */}
+      {(attachedDocuments.length > 0 ||
+        attachedVideos.length > 0 ||
+        topicDocuments.length > 0) && (
         <div data-testid="quick-answer-media" className="flex flex-wrap gap-2">
           {attachedDocuments.map((document) => (
             <a
@@ -466,6 +476,21 @@ function TopicAnswer({
               href={document.url}
               target="_blank"
               rel="noopener noreferrer"
+              data-resource-kind="plan-document"
+              className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1 font-red-hat text-[12px] text-neutral-700 transition-colors hover:border-neutral-300 hover:text-neutral-900"
+            >
+              <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="max-w-[16rem] truncate">{document.title}</span>
+            </a>
+          ))}
+          {/* This answer's OWN documents — they exist only on this card. */}
+          {topicDocuments.map((document) => (
+            <a
+              key={`topic-doc-${document.url}`}
+              href={document.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-resource-kind="topic-document"
               className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1 font-red-hat text-[12px] text-neutral-700 transition-colors hover:border-neutral-300 hover:text-neutral-900"
             >
               <FileText className="h-3.5 w-3.5" aria-hidden="true" />

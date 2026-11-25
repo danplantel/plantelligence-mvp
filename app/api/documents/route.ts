@@ -235,9 +235,13 @@ export async function POST(request: NextRequest) {
       // (e.g. the debounced optional-documents save + persistNewDocumentsToApi both
       // firing for the same upload). Never create a second row for the same
       // client + R2 object.
+      //
+      // `client.id`, not the caller's value: `clientIdOrSlug` may have been a
+      // plan SLUG (the portal addresses plans by slug), and a slug is not a
+      // foreign key.
       const existing = await prisma.document.findFirst({
         where: {
-          clientId,
+          clientId: client.id,
           storageKey: storageKey.trim(),
         },
         select: { id: true, title: true, fileName: true },
@@ -258,7 +262,7 @@ export async function POST(request: NextRequest) {
           type: docType,
           shortDescription: shortDescription ?? null,
           language: language ?? "EN",
-          clientId,
+          clientId: client.id,
           category: categoryHub,
           categorySuggested: suggested,
           categoryConfidence: confidence,

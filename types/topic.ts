@@ -68,6 +68,18 @@ export interface TopicCta {
 }
 
 /**
+ * A document that belongs to ONE topic.
+ *
+ * It is NOT one of the plan's library documents: the title and the link are stored
+ * on the placement itself, so it never appears in the benefit's Documents & Forms
+ * list (`BenefitDocumentSection`) — only inside the card it was attached to.
+ */
+export interface TopicDocumentLink {
+  title: string;
+  url: string;
+}
+
+/**
  * One block in an answer panel (Section 5). `quick_answer` is the only required
  * block; a block with no data is simply absent, so nothing renders empty.
  */
@@ -75,6 +87,7 @@ export type TopicBodyBlock =
   | { type: "quick_answer"; text: string }
   | { type: "steps"; steps: string[] }
   | { type: "documents"; documentIds?: string[] }
+  | { type: "topic_document"; title: string; url: string }
   | { type: "video"; videoId?: string }
   | { type: "contact"; contactId?: string }
   | { type: "cta"; cta: TopicCta };

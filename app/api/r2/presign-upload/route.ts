@@ -1,6 +1,5 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
-import { prisma } from "@/lib/prisma";
 import {
   buildDocumentKey,
   buildBrandingKey,
@@ -9,6 +8,7 @@ import {
   isR2Configured,
   toCanonicalCategory,
 } from "@/lib/r2";
+import { getAuthorizedClient } from "@/lib/teammates/plan-guard.server";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -77,8 +77,13 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, userId: orgId },
+      // A plan ID or its portal slug, owner or assigned teammate — the same rule
+      // every plan route follows. The raw `findFirst({ id, userId })` refused both.
+      const client = await getAuthorizedClient({
+        clientIdOrSlug: clientId,
+        userId: orgId,
+        permission: "documents",
+        level: "edit",
       });
       if (!client) {
         return NextResponse.json({ error: "Client not found" }, { status: 404 });
@@ -86,7 +91,7 @@ export async function POST(request: NextRequest) {
       const canonicalCategory = toCanonicalCategory(category ?? undefined);
       const key = buildDocumentKey({
         orgId,
-        planId: clientId,
+        planId: client.id,
         category: canonicalCategory,
         fileName,
       });
@@ -107,15 +112,16 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, userId: orgId },
+      const client = await getAuthorizedClient({
+        clientIdOrSlug: clientId,
+        userId: orgId,
       });
       if (!client) {
         return NextResponse.json({ error: "Client not found" }, { status: 404 });
       }
       const key = buildBrandingKey({
         orgId,
-        planId: clientId,
+        planId: client.id,
         slot,
         fileName,
       });

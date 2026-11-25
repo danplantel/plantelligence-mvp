@@ -55,11 +55,13 @@ import type {
   PlanMediaDocument,
   PlanMediaMaps,
   PlanMediaVideo,
+  TopicDocumentLink,
 } from "@/types/topic";
 import { ActionHubPanel } from "./action-hub-panel";
 import { topicQuickAnswer } from "@/lib/topics/effective-topic";
 import {
   topicDocumentIdsOf,
+  topicDocumentsOf,
   topicVideoIdsOf,
 } from "@/lib/topics/text-overrides";
 import {
@@ -951,6 +953,12 @@ function HelpCardPanel({
   resolvedMedia?: {
     documents: PlanMediaDocument[];
     videos: PlanMediaVideo[];
+    /**
+     * Documents that belong to this card ALONE (a title + link stored on the
+     * placement). They are not in the plan's library, so they never appear on the
+     * benefit's Documents & Forms list.
+     */
+    topicDocuments?: TopicDocumentLink[];
   };
 }) {
   // The video a resolved media chip is currently playing, if any.
@@ -1175,11 +1183,13 @@ function HelpCardPanel({
             </div>
           )}
 
-          {/* Documents & videos attached to this topic, resolved from THIS plan's
-              library. A document opens in a new tab; a video plays in a lightbox. */}
+          {/* Documents & videos attached to this topic: the plan's library (opens
+              in a new tab) and the documents that belong to this card alone. A
+              video plays in a lightbox. */}
           {resolvedMedia &&
             (resolvedMedia.documents.length > 0 ||
-              resolvedMedia.videos.length > 0) && (
+              resolvedMedia.videos.length > 0 ||
+              (resolvedMedia.topicDocuments ?? []).length > 0) && (
               <div
                 data-testid="help-card-media"
                 className="mt-4 rounded-xl border border-neutral-200 bg-white/60 p-3"
@@ -1194,6 +1204,25 @@ function HelpCardPanel({
                         href={document.url}
                         target="_blank"
                         rel="noopener noreferrer"
+                        data-resource-kind="plan-document"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1 font-red-hat text-[12px] text-neutral-700 transition-colors hover:border-neutral-300 hover:text-neutral-900"
+                      >
+                        <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span className="max-w-[16rem] truncate">
+                          {document.title}
+                        </span>
+                      </a>
+                    </li>
+                  ))}
+                  {/* This card's OWN documents: same chip, but they exist only
+                      here — the benefit's Documents & Forms list does not carry them. */}
+                  {(resolvedMedia.topicDocuments ?? []).map((document) => (
+                    <li key={`topic-doc-${document.url}`}>
+                      <a
+                        href={document.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        data-resource-kind="topic-document"
                         className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1 font-red-hat text-[12px] text-neutral-700 transition-colors hover:border-neutral-300 hover:text-neutral-900"
                       >
                         <FileText className="h-3.5 w-3.5" aria-hidden="true" />
@@ -1603,7 +1632,11 @@ export function HowCanWeHelpSection({
   const mediaByCardId = useMemo(() => {
     const map = new Map<
       string,
-      { documents: PlanMediaDocument[]; videos: PlanMediaVideo[] }
+      {
+        documents: PlanMediaDocument[];
+        videos: PlanMediaVideo[];
+        topicDocuments: TopicDocumentLink[];
+      }
     >();
     for (const topic of topics ?? []) {
       const documents = topicDocumentIdsOf(topic)
@@ -1612,8 +1645,14 @@ export function HowCanWeHelpSection({
       const videos = topicVideoIdsOf(topic)
         .map((id) => media?.videos[id])
         .filter((video): video is PlanMediaVideo => Boolean(video));
-      if (documents.length > 0 || videos.length > 0) {
-        map.set(topic.slug, { documents, videos });
+      // This card's own documents ride the topic, not the plan's library.
+      const topicDocuments = topicDocumentsOf(topic);
+      if (
+        documents.length > 0 ||
+        videos.length > 0 ||
+        topicDocuments.length > 0
+      ) {
+        map.set(topic.slug, { documents, videos, topicDocuments });
       }
     }
     return map;

@@ -103,6 +103,35 @@ describe("QuickAnswersSection — attached media", () => {
     expect(player).not.toBeNull();
     expect(player?.getAttribute("src")).toBe("https://example.com/loans.mp4");
   });
+
+  it("lists a document that belongs to the answer alone", async () => {
+    const user = userEvent.setup();
+    // Not a plan-library document: the title + link ride on the placement, so the
+    // benefit's Documents & Forms list knows nothing about it.
+    const ownDocument = topic({
+      bodyBlocks: [
+        { type: "quick_answer", text: "You borrow and repay by payroll." },
+        {
+          type: "topic_document",
+          title: "Loan request form",
+          url: "https://ssa.test/loan.pdf",
+        },
+      ],
+    });
+
+    render(
+      <QuickAnswersSection
+        groups={[group({ topics: [ownDocument] })]}
+        media={{ documents: {}, videos: {} }}
+      />,
+    );
+
+    await user.click(screen.getByTestId("quick-answer-question"));
+
+    const link = await screen.findByRole("link", { name: /Loan request form/ });
+    expect(link).toHaveAttribute("href", "https://ssa.test/loan.pdf");
+    expect(link).toHaveAttribute("data-resource-kind", "topic-document");
+  });
 });
 
 /**

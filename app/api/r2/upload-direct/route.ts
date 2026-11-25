@@ -1,6 +1,5 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
-import { prisma } from "@/lib/prisma";
 import {
   buildBrandingKey,
   buildDocumentKey,
@@ -9,6 +8,7 @@ import {
   putObjectBuffer,
   toCanonicalCategory,
 } from "@/lib/r2";
+import { getAuthorizedClient } from "@/lib/teammates/plan-guard.server";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -77,8 +77,12 @@ export async function POST(request: NextRequest) {
           { status: 400 },
         );
       }
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, userId: orgId },
+      // `clientId` may be a plan ID or its portal slug, and the caller may be the
+      // owner OR a teammate assigned to the plan — the same rule every plan route
+      // now follows. The raw `findFirst({ id, userId })` refused both.
+      const client = await getAuthorizedClient({
+        clientIdOrSlug: clientId,
+        userId: orgId,
       });
       if (!client) {
         return NextResponse.json(
@@ -86,7 +90,12 @@ export async function POST(request: NextRequest) {
           { status: 404 },
         );
       }
-      key = buildBrandingKey({ orgId, planId: clientId, slot, fileName });
+      key = buildBrandingKey({
+        orgId,
+        planId: client.id,
+        slot,
+        fileName,
+      });
     } else if (purpose === "document") {
       if (!clientId) {
         return NextResponse.json(
@@ -94,8 +103,11 @@ export async function POST(request: NextRequest) {
           { status: 400 },
         );
       }
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, userId: orgId },
+      const client = await getAuthorizedClient({
+        clientIdOrSlug: clientId,
+        userId: orgId,
+        permission: "documents",
+        level: "edit",
       });
       if (!client) {
         return NextResponse.json(
@@ -106,7 +118,7 @@ export async function POST(request: NextRequest) {
       const canonicalCategory = toCanonicalCategory(category ?? undefined);
       key = buildDocumentKey({
         orgId,
-        planId: clientId,
+        planId: client.id,
         category: canonicalCategory,
         fileName,
       });

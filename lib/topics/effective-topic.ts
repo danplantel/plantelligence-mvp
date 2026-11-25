@@ -106,6 +106,15 @@ export function readTopicBodyBlocks(value: unknown): TopicBodyBlock[] {
         );
         break;
       }
+      case "topic_document": {
+        // A document that belongs to this topic only (title + link, stored on the
+        // placement). Both halves are required — a title with no destination would
+        // render a chip that goes nowhere.
+        const title = asTrimmedString(raw.title);
+        const url = asTrimmedString(raw.url);
+        if (title && url) blocks.push({ type: "topic_document", title, url });
+        break;
+      }
       case "video": {
         const videoId = asTrimmedString(raw.videoId);
         if (videoId) blocks.push({ type: "video", videoId });

@@ -30,6 +30,8 @@ const mocks = vi.hoisted(() => ({
       delete: vi.fn(),
       deleteMany: vi.fn(),
     },
+    // Deleting a document detaches it from the plan's topic placements.
+    topicPlacement: { findMany: vi.fn(), update: vi.fn() },
     $transaction: vi.fn(),
   },
   tx: {
@@ -145,6 +147,8 @@ beforeEach(() => {
   mocks.prisma.document.update.mockResolvedValue({ id: DOC_ID });
   mocks.prisma.document.delete.mockResolvedValue({ id: DOC_ID });
   mocks.prisma.document.deleteMany.mockResolvedValue({ count: 0 });
+  mocks.prisma.topicPlacement.findMany.mockResolvedValue([]);
+  mocks.prisma.topicPlacement.update.mockResolvedValue({ id: "placement-1" });
   mocks.tx.document.findMany.mockResolvedValue([]);
   mocks.tx.document.create.mockResolvedValue({
     id: "doc-new",
@@ -777,6 +781,61 @@ describe("DELETE /api/documents/[id]", () => {
     expect(body.message).toBe("Document deleted successfully");
     expect(mocks.prisma.document.delete).toHaveBeenCalledWith({
       where: { id: DOC_ID },
+    });
+  });
+
+  it("detaches the deleted document from the plan's topics", async () => {
+    mocks.prisma.document.findFirst.mockResolvedValue({
+      id: DOC_ID,
+      clientId: PLAN_ID,
+    });
+    // One card kept the id alone (the block goes), one kept a sibling (the id
+    // leaves, the block stays), one never had it.
+    mocks.prisma.topicPlacement.findMany.mockResolvedValue([
+      {
+        id: "placement-1",
+        overrides: {
+          bodyBlocks: [{ type: "documents", documentIds: [DOC_ID] }],
+        },
+      },
+      {
+        id: "placement-2",
+        overrides: {
+          bodyBlocks: [
+            { type: "quick_answer", text: "Yes." },
+            { type: "documents", documentIds: [DOC_ID, "doc-2"] },
+          ],
+        },
+      },
+      {
+        id: "placement-3",
+        overrides: {
+          bodyBlocks: [
+            { type: "quick_answer", text: "Yes." },
+            { type: "documents", documentIds: ["doc-2"] },
+          ],
+        },
+      },
+    ]);
+
+    await deleteDocument(request(`/api/documents/${DOC_ID}`), ctx());
+
+    expect(mocks.prisma.topicPlacement.update).toHaveBeenCalledTimes(2);
+    expect(mocks.prisma.topicPlacement.update).toHaveBeenCalledWith({
+      where: { id: "placement-1" },
+      // Nothing left in the override at all — the row clears its column.
+      data: { overrides: expect.anything() },
+    });
+    expect(mocks.prisma.topicPlacement.update).toHaveBeenCalledWith({
+      where: { id: "placement-2" },
+      data: {
+        overrides: {
+          bodyBlocks: [
+            { type: "quick_answer", text: "Yes." },
+            { type: "documents", documentIds: ["doc-2"] },
+          ],
+        },
+      },
     });
   });
 

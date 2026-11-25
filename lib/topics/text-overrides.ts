@@ -2,6 +2,7 @@ import { topicQuickAnswer } from "@/lib/topics/effective-topic";
 import type {
   EffectiveTopic,
   TopicBodyBlock,
+  TopicDocumentLink,
   TopicPlacementOverrides,
 } from "@/types/topic";
 
@@ -28,10 +29,33 @@ export interface TopicTextValues {
   documentIds?: string[];
   /** The plan-video ids attached to this topic. Optional for the same reason. */
   videoIds?: string[];
+  /**
+   * Documents that belong to THIS topic only — a title + link stored on the
+   * placement, never on the plan's library, so they stay off the benefit's
+   * Documents & Forms list. Optional for the same reason as the ids above.
+   */
+  topicDocuments?: TopicDocumentLink[];
 }
 
 /** A card's steps can never exceed this many. */
 export const MAX_TOPIC_STEPS = 4;
+
+/**
+ * How much copy each field holds.
+ *
+ * These are the lengths the CARD can actually show, not arbitrary caps: a title
+ * is one line on a tile, the card line is the two-line teaser under it, a step is
+ * one short instruction, and the answer is the block a participant reads in the
+ * open panel. The editor shows a counter beside each field so an advisor never
+ * discovers the limit by having text silently clipped by the layout.
+ */
+export const MAX_TOPIC_TITLE_LENGTH = 60;
+/** The two-line teaser printed on the tile. */
+export const MAX_TOPIC_SUMMARY_LENGTH = 140;
+/** The expanded answer in the open panel (a paragraph, not an essay). */
+export const MAX_TOPIC_ANSWER_LENGTH = 700;
+/** One numbered how-to step — a single instruction. */
+export const MAX_TOPIC_STEP_LENGTH = 120;
 
 /**
  * The overrides payload the `PATCH /topics` endpoint reads. A `null` field means
@@ -52,6 +76,39 @@ export function topicStepsOf(topic: EffectiveTopic): string[] {
     .map((step) => step.trim())
     .filter(Boolean)
     .slice(0, MAX_TOPIC_STEPS);
+}
+
+/** Trim, drop half-filled entries and de-duplicate a topic's own documents. */
+export function normalizeTopicDocuments(
+  documents: TopicDocumentLink[],
+): TopicDocumentLink[] {
+  const seen = new Set<string>();
+  const clean: TopicDocumentLink[] = [];
+  for (const entry of documents) {
+    const title = (entry?.title || "").trim();
+    const url = (entry?.url || "").trim();
+    if (!title || !url) continue;
+    const key = `${title.toLowerCase()}|${url}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    clean.push({ title, url });
+  }
+  return clean;
+}
+
+/**
+ * Every document that belongs to this topic ONLY, in block order.
+ *
+ * These are not plan-library documents: they are the ones an advisor typed into
+ * the Edit Topic dialog, so they render inside this card and nowhere else.
+ */
+export function topicDocumentsOf(topic: EffectiveTopic): TopicDocumentLink[] {
+  const documents: TopicDocumentLink[] = [];
+  for (const block of topic.bodyBlocks) {
+    if (block.type !== "topic_document") continue;
+    documents.push({ title: block.title, url: block.url });
+  }
+  return documents;
 }
 
 /** Every plan-document id this topic attaches, in block order, de-duplicated. */
@@ -95,6 +152,7 @@ export function topicTextValuesOf(topic: EffectiveTopic): TopicTextValues {
     steps: topicStepsOf(topic),
     documentIds: topicDocumentIdsOf(topic),
     videoIds: topicVideoIdsOf(topic),
+    topicDocuments: topicDocumentsOf(topic),
   };
 }
 
@@ -116,10 +174,15 @@ export function previewTopicFromValues(
     ? buildBodyBlocksWithAnswer(topic.bodyBlocks, answer)
     : topic.bodyBlocks.filter((block) => block.type !== "quick_answer");
   let bodyBlocks = applyStepsToBodyBlocks(withAnswer, steps);
-  if (values.documentIds !== undefined || values.videoIds !== undefined) {
+  if (
+    values.documentIds !== undefined ||
+    values.videoIds !== undefined ||
+    values.topicDocuments !== undefined
+  ) {
     bodyBlocks = applyMediaToBodyBlocks(bodyBlocks, {
       documentIds: values.documentIds ?? topicDocumentIdsOf(topic),
       videoIds: values.videoIds ?? topicVideoIdsOf(topic),
+      topicDocuments: values.topicDocuments ?? topicDocumentsOf(topic),
     });
   }
   const summary = values.summary.trim();
@@ -180,6 +243,49 @@ export function buildBodyBlocksWithAnswer(
 }
 
 /**
+ * Remove one plan-document id from a topic's blocks.
+ *
+ * A topic stores only ids, so a document the advisor deletes from the plan's
+ * library would otherwise leave every card that attached it pointing at nothing:
+ * the Edit Topic dialog could only call it "no longer in the library" and the
+ * portal would drop it. The delete route uses this to detach the id at the
+ * source, so the two never disagree.
+ *
+ * A `documents` block that held ONLY that id is dropped (an empty block means
+ * "every document for this category", which would be a different promise); a
+ * block with other ids keeps them, in order.
+ */
+export function detachDocumentIdFromBodyBlocks(
+  blocks: TopicBodyBlock[],
+  documentId: string,
+): TopicBodyBlock[] {
+  const target = documentId.trim();
+  if (!target) return blocks;
+  const result: TopicBodyBlock[] = [];
+  for (const block of blocks) {
+    if (block.type !== "documents") {
+      result.push(block);
+      continue;
+    }
+    // No ids at all is the "whole category" block — it names no document, so a
+    // deleted id cannot be in it.
+    if (!block.documentIds || block.documentIds.length === 0) {
+      result.push(block);
+      continue;
+    }
+    const remaining = block.documentIds.filter((id) => id.trim() !== target);
+    if (remaining.length === block.documentIds.length) {
+      result.push(block);
+      continue;
+    }
+    if (remaining.length > 0) {
+      result.push({ type: "documents", documentIds: remaining });
+    }
+  }
+  return result;
+}
+
+/**
  * Replace the steps block with `steps` (clamped to {@link MAX_TOPIC_STEPS}). An empty
  * list removes the steps block; a topic with no steps block gains one at the end.
  */
@@ -201,16 +307,22 @@ export function applyStepsToBodyBlocks(
 }
 
 /**
- * Replace the topic's media (documents + videos) with `documentIds`/`videoIds`,
- * keeping every other block (answer, steps, CTA) in place.
+ * Replace the topic's media with the given plan documents, topic-only documents
+ * and plan videos, keeping every other block (answer, steps, CTA) in place.
  *
  * The block list keeps its shape: the new media blocks take the slot of the OLD
- * media blocks, or are appended when the topic had none. One `video` block per
- * video id, because the block carries a single id.
+ * media blocks, or are appended when the topic had none. Within the group the
+ * order is plan documents → topic-only documents → videos, so a participant reads
+ * the benefit's shared documents first. One `topic_document` / `video` block per
+ * entry, because each carries a single document / id.
  */
 export function applyMediaToBodyBlocks(
   blocks: TopicBodyBlock[],
-  media: { documentIds?: string[]; videoIds?: string[] },
+  media: {
+    documentIds?: string[];
+    videoIds?: string[];
+    topicDocuments?: TopicDocumentLink[];
+  },
 ): TopicBodyBlock[] {
   const documentIds = [
     ...new Set((media.documentIds ?? []).map((id) => id.trim()).filter(Boolean)),
@@ -218,10 +330,18 @@ export function applyMediaToBodyBlocks(
   const videoIds = [
     ...new Set((media.videoIds ?? []).map((id) => id.trim()).filter(Boolean)),
   ];
+  const topicDocuments = normalizeTopicDocuments(media.topicDocuments ?? []);
 
   const mediaBlocks: TopicBodyBlock[] = [];
   if (documentIds.length > 0) {
     mediaBlocks.push({ type: "documents", documentIds });
+  }
+  for (const document of topicDocuments) {
+    mediaBlocks.push({
+      type: "topic_document",
+      title: document.title,
+      url: document.url,
+    });
   }
   for (const videoId of videoIds) {
     mediaBlocks.push({ type: "video", videoId });
@@ -230,7 +350,11 @@ export function applyMediaToBodyBlocks(
   const result: TopicBodyBlock[] = [];
   let inserted = false;
   for (const block of blocks) {
-    if (block.type === "documents" || block.type === "video") {
+    if (
+      block.type === "documents" ||
+      block.type === "topic_document" ||
+      block.type === "video"
+    ) {
       if (!inserted) {
         result.push(...mediaBlocks);
         inserted = true;
@@ -278,14 +402,21 @@ export function overridesFromTextValues(
 
   // Media is edited in the same dialog; only touch it when the caller supplied it.
   const mediaProvided =
-    values.documentIds !== undefined || values.videoIds !== undefined;
+    values.documentIds !== undefined ||
+    values.videoIds !== undefined ||
+    values.topicDocuments !== undefined;
   const nextDocumentIds = values.documentIds ?? topicDocumentIdsOf(topic);
   const nextVideoIds = values.videoIds ?? topicVideoIdsOf(topic);
+  const nextTopicDocuments = normalizeTopicDocuments(
+    values.topicDocuments ?? topicDocumentsOf(topic),
+  );
   const mediaChanged =
     mediaProvided &&
     (JSON.stringify(nextDocumentIds) !==
       JSON.stringify(topicDocumentIdsOf(topic)) ||
-      JSON.stringify(nextVideoIds) !== JSON.stringify(topicVideoIdsOf(topic)));
+      JSON.stringify(nextVideoIds) !== JSON.stringify(topicVideoIdsOf(topic)) ||
+      JSON.stringify(nextTopicDocuments) !==
+        JSON.stringify(topicDocumentsOf(topic)));
 
   // The answer, steps and media all live in the same bodyBlocks array, so any of
   // them changing rewrites the block list (preserving whatever else is there — CTA,
@@ -299,6 +430,7 @@ export function overridesFromTextValues(
       nextBlocks = applyMediaToBodyBlocks(nextBlocks, {
         documentIds: nextDocumentIds,
         videoIds: nextVideoIds,
+        topicDocuments: nextTopicDocuments,
       });
     }
     overrides.bodyBlocks = nextBlocks.length > 0 ? nextBlocks : null;

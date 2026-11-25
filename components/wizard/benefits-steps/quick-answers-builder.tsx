@@ -2137,6 +2137,7 @@ export function QuickAnswersBuilder({
         topic={editingTopic}
         open={editingTopic !== null}
         media={data?.media}
+        planId={planId}
         onOpenChange={(open) => {
           if (!open) setEditingTopic(null);
         }}

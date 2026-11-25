@@ -115,6 +115,11 @@ interface HelpCardLayoutEditorProps {
   topics?: EffectiveTopic[];
   /** The plan's documents + videos, offered by the "Edit Topic" dialog. */
   media?: PlanMediaLibrary | null;
+  /**
+   * The plan being edited. Lets "Edit Topic" upload a document that belongs to one
+   * card (stored against this plan). Omitted hides that control.
+   */
+  planId?: string;
   /** Save one card's edited text. Omitted hides the "Edit Topic" control. */
   onSaveText?: (
     topic: EffectiveTopic,
@@ -527,6 +532,7 @@ export function HelpCardLayoutEditor({
   movingCardId,
   topics,
   media,
+  planId,
   onSaveText,
   onPreviewText,
 }: HelpCardLayoutEditorProps) {
@@ -886,6 +892,7 @@ export function HelpCardLayoutEditor({
           topic={editingTopic}
           open={editingTopic !== null}
           media={media}
+          planId={planId}
           onOpenChange={(open) => {
             if (!open) setEditingTopic(null);
           }}
