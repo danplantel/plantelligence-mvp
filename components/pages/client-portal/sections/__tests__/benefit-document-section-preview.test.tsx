@@ -340,3 +340,45 @@ describe("BenefitDocumentSection preview", () => {
     expect(previewFrame()).toHaveAttribute("src", VIEW_URL);
   });
 });
+
+/**
+ * A re-read must not blank the band.
+ *
+ * The Editing Panel hands the hub the row the instant it is uploaded, and the page
+ * then re-reads the library to reconcile it. Swapping the whole grid for the
+ * skeleton during that read made the new card disappear and come back a beat
+ * later — which reads as "the upload has not worked yet".
+ */
+describe("BenefitDocumentSection re-reads", () => {
+  it("keeps the documents on screen while a later read is pending", () => {
+    render(
+      <BenefitDocumentSection
+        hideHeader
+        portalClientId={PLAN}
+        retirementDocs={[doc()]}
+        loading
+      />,
+    );
+
+    expect(screen.getByText("Enrollment Booklet")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /VIEW\/DOWNLOAD/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("still shows the skeleton when the first read has nothing to draw", () => {
+    render(
+      <BenefitDocumentSection
+        hideHeader
+        portalClientId={PLAN}
+        retirementDocs={[]}
+        loading
+      />,
+    );
+
+    // The skeleton, not a card — there is nothing to draw yet.
+    expect(
+      screen.queryByRole("button", { name: /VIEW\/DOWNLOAD/i }),
+    ).not.toBeInTheDocument();
+  });
+});

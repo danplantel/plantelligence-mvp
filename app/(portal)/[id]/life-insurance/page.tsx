@@ -33,6 +33,10 @@ import { sortDocumentRowsByCustomOrder } from "@/lib/documents/document-sort";
 import { fetchPlanDocumentsForClient } from "@/lib/fetch-plan-documents-client";
 import { usePlanMediaLibrary } from "@/hooks/usePlanMediaLibrary";
 import {
+  preservePendingPlanDocuments,
+  usePlanDocumentChanges,
+} from "@/hooks/usePlanDocumentChanges";
+import {
   benefitCategoryToDocumentHubLabel,
   mapMergedRowsToBenefitHubItems,
 } from "@/lib/map-plan-documents-for-benefit-hub";
@@ -106,6 +110,23 @@ export default function LifeInsurancePage() {
   const clientDataRef = useRef(clientData);
   clientDataRef.current = clientData;
 
+  // A document uploaded or deleted in the Editing Panel is drawn HERE on the same
+  // frame: the change arrives with the announcement, so the band grows/shrinks
+  // before the refetch that reconciles it (see `usePlanDocumentChanges`).
+  const { addedIds } = usePlanDocumentChanges({
+    clientId,
+    targetHub: LIFE_DOCUMENT_HUB,
+    onInsert: (items) =>
+      setLifeDocs((current) => {
+        const known = new Set(current.map((doc) => doc.id));
+        return [...current, ...items.filter((doc) => !known.has(doc.id))];
+      }),
+    onRemove: (ids) => {
+      const gone = new Set(ids);
+      setLifeDocs((current) => current.filter((doc) => !gone.has(doc.id)));
+    },
+  });
+
   // Fetch life insurance plan documents
   useEffect(() => {
     if (!clientId) {
@@ -131,18 +152,25 @@ export default function LifeInsurancePage() {
         const orderedRaw = sortDocumentRowsByCustomOrder(
           mergedRaw as Record<string, unknown>[],
         );
-        setLifeDocs(
-          mapMergedRowsToBenefitHubItems(orderedRaw, LIFE_DOCUMENT_HUB),
+        const items = mapMergedRowsToBenefitHubItems(
+          orderedRaw,
+          LIFE_DOCUMENT_HUB,
+        );
+        // A read that started before an upload committed must not wipe the card the
+        // panel just drew (see `preservePendingPlanDocuments`).
+        setLifeDocs((current) =>
+          preservePendingPlanDocuments(items, current, addedIds),
         );
       } catch (error) {
         console.error("Error fetching life insurance documents:", error);
         const embeddedDocs = clientDataRef.current?.documents;
         const embedded = Array.isArray(embeddedDocs) ? embeddedDocs : [];
-        setLifeDocs(
-          mapMergedRowsToBenefitHubItems(
-            mergePlanDocumentRows([], embedded as unknown[]),
-            LIFE_DOCUMENT_HUB,
-          ),
+        const items = mapMergedRowsToBenefitHubItems(
+          mergePlanDocumentRows([], embedded as unknown[]),
+          LIFE_DOCUMENT_HUB,
+        );
+        setLifeDocs((current) =>
+          preservePendingPlanDocuments(items, current, addedIds),
         );
       } finally {
         if (!cancelled) setLoadingDocs(false);
@@ -310,8 +338,13 @@ export default function LifeInsurancePage() {
         </div>
 
         {/* Documents & Forms — edited in the panel's own "Benefit Documents"
-            section, which writes the plan's library directly. */}
-        <div className="relative">
+            section, which writes the plan's library directly. The id is what a
+            successful upload scrolls back to, and `scroll-mt-24` keeps the band's
+            heading clear of the fixed portal header. */}
+        <div
+          id={benefitEditAnchor.documents}
+          className="relative scroll-mt-24"
+        >
           <BenefitDocumentSection
             brandColor={brandColor}
             accentColor={secondaryColor}

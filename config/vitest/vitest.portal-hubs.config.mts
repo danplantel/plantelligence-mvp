@@ -93,6 +93,9 @@ const portalHubTests = [
   // The panel's "Benefit Documents" section: one flow (AI-named upload + rows with
   // their quick actions), a delete that removes the row, a rename that PATCHes it
   "components/portal-editing/editors/__tests__/portal-benefit-documents-section.test.tsx",
+  // A document uploaded/deleted in the panel reaching the page beside it on the
+  // same frame
+  "hooks/__tests__/usePlanDocumentChanges.test.tsx",
   // The href each hub card carries: persisted cuid → /view, never the "r2:stored"
   // placeholder the browser refuses to launch
   "lib/__tests__/map-plan-documents-for-benefit-hub.test.ts",

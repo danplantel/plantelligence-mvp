@@ -296,6 +296,16 @@ export function BenefitDocumentSection({
   const actualRetirementDocs =
     retirementDocs !== undefined ? retirementDocs : defaultRetirementDocs;
 
+  /**
+   * Skeleton only for the FIRST read.
+   *
+   * Every later read is a reconcile — the panel already handed this page the row it
+   * just uploaded, and the hub must keep showing it. Letting `loading` swap the grid
+   * for a skeleton turns that into a card that vanishes and comes back a beat
+   * later, which reads as "the upload did not work yet".
+   */
+  const showSkeleton = loading && actualRetirementDocs.length === 0;
+
   // Derive accordion header title from the documents' category when not explicitly provided.
   // This ensures the accordion header matches the Benefit Hub page without callers needing
   // to manually map categories to titles.
@@ -671,7 +681,7 @@ export function BenefitDocumentSection({
       )}
       <section className={outerClasses}>
         <div className={containerClasses}>
-          {loading ? (
+          {showSkeleton ? (
             <DocsGridSkeleton brandColor={brandColor} />
           ) : hideHeader ? (
             // Simple grid view without accordion wrapper
@@ -756,7 +766,7 @@ export function BenefitDocumentSection({
                     </div>
                   )}
 
-                  {loading ? (
+                  {showSkeleton ? (
                     <DocsGridSkeleton brandColor={brandColor} />
                   ) : (
                     <DocsGrid

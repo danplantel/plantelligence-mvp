@@ -33,6 +33,10 @@ import { sortDocumentRowsByCustomOrder } from "@/lib/documents/document-sort";
 import { fetchPlanDocumentsForClient } from "@/lib/fetch-plan-documents-client";
 import { usePlanMediaLibrary } from "@/hooks/usePlanMediaLibrary";
 import {
+  preservePendingPlanDocuments,
+  usePlanDocumentChanges,
+} from "@/hooks/usePlanDocumentChanges";
+import {
   benefitCategoryToDocumentHubLabel,
   mapMergedRowsToBenefitHubItems,
 } from "@/lib/map-plan-documents-for-benefit-hub";
@@ -135,6 +139,25 @@ export default function RetirementPage() {
     [benefitData?.supportContacts, clientData?.keyContacts],
   );
 
+  // A document uploaded or deleted in the Editing Panel is drawn HERE on the same
+  // frame: the change arrives with the announcement, so the band grows/shrinks
+  // before the refetch that reconciles it (see `usePlanDocumentChanges`).
+  const { addedIds } = usePlanDocumentChanges({
+    clientId,
+    targetHub: RETIREMENT_DOCUMENT_HUB,
+    onInsert: (items) =>
+      setRetirementDocs((current) => {
+        const known = new Set(current.map((doc) => doc.id));
+        return [...current, ...items.filter((doc) => !known.has(doc.id))];
+      }),
+    onRemove: (ids) => {
+      const gone = new Set(ids);
+      setRetirementDocs((current) =>
+        current.filter((doc) => !gone.has(doc.id)),
+      );
+    },
+  });
+
   // Same data as Benefits Step 4: GET /api/documents/client + embedded docs from context
   useEffect(() => {
     if (!clientId) {
@@ -160,18 +183,25 @@ export default function RetirementPage() {
         const orderedRaw = sortDocumentRowsByCustomOrder(
           mergedRaw as Record<string, unknown>[],
         );
-        setRetirementDocs(
-          mapMergedRowsToBenefitHubItems(orderedRaw, RETIREMENT_DOCUMENT_HUB),
+        const items = mapMergedRowsToBenefitHubItems(
+          orderedRaw,
+          RETIREMENT_DOCUMENT_HUB,
+        );
+        // A read that started before an upload committed must not wipe the card the
+        // panel just drew (see `preservePendingPlanDocuments`).
+        setRetirementDocs((current) =>
+          preservePendingPlanDocuments(items, current, addedIds),
         );
       } catch (error) {
         console.error("Error fetching retirement documents:", error);
         const embeddedDocs = clientDataRef.current?.documents;
         const embedded = Array.isArray(embeddedDocs) ? embeddedDocs : [];
-        setRetirementDocs(
-          mapMergedRowsToBenefitHubItems(
-            mergePlanDocumentRows([], embedded as unknown[]),
-            RETIREMENT_DOCUMENT_HUB,
-          ),
+        const items = mapMergedRowsToBenefitHubItems(
+          mergePlanDocumentRows([], embedded as unknown[]),
+          RETIREMENT_DOCUMENT_HUB,
+        );
+        setRetirementDocs((current) =>
+          preservePendingPlanDocuments(items, current, addedIds),
         );
       } finally {
         if (!cancelled) setLoadingDocs(false);
@@ -323,8 +353,13 @@ export default function RetirementPage() {
         </div>
 
         {/* Documents & Forms — edited in the panel's own "Benefit Documents"
-            section, which writes the plan's library directly. */}
-        <div className="relative">
+            section, which writes the plan's library directly. The id is what a
+            successful upload scrolls back to, and `scroll-mt-24` keeps the band's
+            heading clear of the fixed portal header. */}
+        <div
+          id={benefitEditAnchor.documents}
+          className="relative scroll-mt-24"
+        >
           <BenefitDocumentSection
             brandColor={brandColor}
             accentColor={secondaryColor}

@@ -23,7 +23,9 @@ export const HAVE_QUESTIONS_SECTION_ID = "have-questions";
  */
 export function scrollToPortalSection(sectionId: string): void {
   if (typeof document === "undefined") return;
+  // `scrollIntoView` is optional: jsdom does not implement it, and a caller that
+  // simply asks the page to show a section should not throw where it cannot.
   document
     .getElementById(sectionId)
-    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    ?.scrollIntoView?.({ behavior: "smooth", block: "start" });
 }

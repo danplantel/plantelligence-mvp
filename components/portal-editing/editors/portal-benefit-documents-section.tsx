@@ -24,6 +24,12 @@ import { fetchPlanDocumentsForClient } from "@/lib/fetch-plan-documents-client";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
 import { isPersistedDocumentId } from "@/lib/document-id";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
+import { benefitEditAnchor } from "@/lib/portal-editor-sections";
+import { scrollToPortalSection } from "@/lib/portal-section-anchors";
+import {
+  announcePlanDocumentsAdded,
+  announcePlanDocumentsRemoved,
+} from "@/hooks/usePlanDocumentChanges";
 import type {
   BenefitsCategory,
   Document as WizardDocument,
@@ -91,6 +97,20 @@ function dedupeById(documents: PlanDocumentDraft[]): PlanDocumentDraft[] {
   });
 }
 
+/** A row the page can draw — the shape the documents API returns. */
+function documentRowOf(doc: PlanDocumentDraft): Record<string, unknown> {
+  return {
+    id: doc.id,
+    title: doc.name,
+    fileName: doc.originalFileName || doc.name,
+    shortDescription: doc.shortDescription ?? null,
+    category: doc.category,
+    language: doc.language ?? "EN",
+    storageKey: doc.storageKey,
+    uploadedAt: new Date().toISOString(),
+  };
+}
+
 export function PortalBenefitDocumentsSection({
   planId,
   benefitCategory,
@@ -108,7 +128,6 @@ export function PortalBenefitDocumentsSection({
   const [pendingDelete, setPendingDelete] = useState<PlanDocumentDraft | null>(
     null,
   );
-  const [deleting, setDeleting] = useState(false);
   /** The list the next change is diffed against — read without re-binding. */
   const documentsRef = useRef<PlanDocumentDraft[]>([]);
   documentsRef.current = documents;
@@ -128,6 +147,9 @@ export function PortalBenefitDocumentsSection({
     [benefitCategory],
   );
 
+  /** True once the plan's library has been read — nothing is "new" before that. */
+  const hydratedRef = useRef(false);
+
   const load = useCallback(async () => {
     const rows = await fetchPlanDocumentsForClient(planId);
     const converted = await Promise.all(
@@ -138,6 +160,7 @@ export function PortalBenefitDocumentsSection({
     const next = converted as unknown as PlanDocumentDraft[];
     documentsRef.current = next;
     setDocuments(next);
+    hydratedRef.current = true;
   }, [planId]);
 
   useEffect(() => {
@@ -156,27 +179,66 @@ export function PortalBenefitDocumentsSection({
    * and a storage key, which is exactly what `persistNewDocumentsToApi` turns into
    * rows — it returns the SAME array when there is nothing to persist, so a plain
    * re-render never triggers a write.
+   *
+   * The uploader runs its own auto-persist effect as well, so the row can be
+   * written by either side of that race. That is why the diff looks at the ids
+   * themselves: whatever turns `temp-` into a real id, the page hears about it on
+   * that very frame and draws the card at once.
    */
   const handleUploadChange = useCallback(
     (next: PlanDocumentDraft[]) => {
       const deduped = dedupeById(next);
-      const outside = documentsRef.current.filter((doc) => !inBenefitScope(doc));
+      const before = documentsRef.current;
+
+      /** Ids this panel already held — anything else real is new to the page. */
+      const knownIds = new Set(
+        before
+          .map((doc) => String(doc.id ?? ""))
+          .filter((id) => isPersistedDocumentId(id)),
+      );
+
+      /** Hand every id the panel has not held before to the page beside it. */
+      const announceNewRows = (rows: PlanDocumentDraft[]): number => {
+        const fresh = rows.filter((doc) => {
+          const id = String(doc.id ?? "");
+          return isPersistedDocumentId(id) && !knownIds.has(id);
+        });
+        if (fresh.length === 0) return 0;
+        fresh.forEach((doc) => knownIds.add(String(doc.id ?? "")));
+        announcePlanDocumentsAdded(planId, fresh.map(documentRowOf));
+        // Show the advisor where the file landed — right away, on the same frame
+        // the page draws the card: the hub's Documents & Forms band.
+        // `scrollIntoView` works through the replica's transform, so the page can
+        // be scaled and the band still ends up under the viewport.
+        scrollToPortalSection(benefitEditAnchor.documents);
+        return fresh.length;
+      };
+
+      const outside = before.filter((doc) => !inBenefitScope(doc));
       const merged = [...deduped, ...outside];
       documentsRef.current = merged;
       setDocuments(merged);
 
+      // Rows that came back already real (the uploader persisted them itself).
+      const announced = hydratedRef.current ? announceNewRows(merged) : 0;
+
       void (async () => {
-        const persisted = await persistNewDocumentsToApi(
-          planId,
-          deduped as unknown as Parameters<typeof persistNewDocumentsToApi>[1],
-        );
-        if (persisted === (deduped as unknown)) return;
         try {
+          const persisted = await persistNewDocumentsToApi(
+            planId,
+            deduped as unknown as Parameters<typeof persistNewDocumentsToApi>[1],
+          );
+          const wroteRows = persisted !== (deduped as unknown);
+          const lateAnnounced = wroteRows
+            ? announceNewRows(persisted as unknown as PlanDocumentDraft[])
+            : 0;
+          if (announced === 0 && lateAnnounced === 0 && !wroteRows) return;
+
           await load();
           announcePlanDocumentsChanged(planId);
           toast.success("Document added to this benefit.");
         } catch (error) {
-          console.error("[portal-benefit-documents] reload failed:", error);
+          console.error("[portal-benefit-documents] upload persist failed:", error);
         }
       })();
     },
@@ -230,31 +292,46 @@ export function PortalBenefitDocumentsSection({
     const doc = pendingDelete;
     if (!doc) return;
 
-    setDeleting(true);
+    const id = String(doc.id ?? "");
+    const persisted = isPersistedDocumentId(id);
+
+    // The row leaves the list NOW. The advisor confirmed, and holding the card
+    // behind a round trip reads as a click that missed — worse, the page beside
+    // the panel would keep showing a document that is already on its way out.
+    const before = documentsRef.current;
+    const remaining = before.filter((entry) => String(entry.id) !== id);
+    documentsRef.current = remaining;
+    setDocuments(remaining);
+    setPendingDelete(null);
+    if (persisted) announcePlanDocumentsRemoved(planId, [id]);
+
     try {
-      if (typeof doc.storageKey === "string" && doc.storageKey.trim()) {
-        await deleteFromR2(doc.storageKey);
-      }
-      if (isPersistedDocumentId(String(doc.id))) {
-        const response = await fetch(`/api/documents/${doc.id}`, {
+      if (persisted) {
+        const response = await fetch(`/api/documents/${id}`, {
           method: "DELETE",
         });
         if (!response.ok && response.status !== 404) {
           throw new Error("Could not delete that document.");
         }
       }
-      setPendingDelete(null);
-      await load();
+      // The stored object is cleaned up best-effort, after the row: the row is
+      // what the page reads, so it must not wait on a storage call.
+      if (typeof doc.storageKey === "string" && doc.storageKey.trim()) {
+        void deleteFromR2(doc.storageKey);
+      }
+      // Reconcile whatever else the delete touched (topic attachments, ordering).
       announcePlanDocumentsChanged(planId);
       toast.success(`"${doc.name}" deleted.`);
     } catch (error) {
+      // The row survived — put it back, in the panel and on the page.
+      documentsRef.current = before;
+      setDocuments(before);
+      if (persisted) announcePlanDocumentsAdded(planId, [documentRowOf(doc)]);
       toast.error(
         error instanceof Error
           ? error.message
           : "Could not delete that document.",
       );
-    } finally {
-      setDeleting(false);
     }
   };
 
@@ -472,7 +549,7 @@ export function PortalBenefitDocumentsSection({
             ? `Delete "${pendingDelete.name}"? It is removed from this benefit's Documents & Forms for good.`
             : ""
         }
-        confirmText={deleting ? "Deleting…" : "Delete"}
+        confirmText="Delete"
         cancelText="Cancel"
         variant="warning"
       />
