@@ -532,6 +532,7 @@ function MarketingAssetListAccordionItem({
                               flyerQrDataUrl: resolvedQrDataUrl,
                               meetingTime,
                               meetingLocation,
+                              meetingType: (d.meetingType as string) || "",
                               flyerSubtitle,
                               flyerTemplate: flyerTemplate as FlyerPreviewProps["flyerTemplate"],
                               flyerLanguage,

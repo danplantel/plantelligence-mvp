@@ -2,7 +2,7 @@
 
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 
-export type FlyerTemplateId = "TopicalTemplate1" | "TopicalTemplate2" | "TopicalTemplate3" | "TopicalTemplate4" | "MeetingTemplate1";
+export type FlyerTemplateId = "TopicalTemplate1" | "TopicalTemplate2" | "TopicalTemplate3" | "TopicalTemplate4" | "MeetingTemplate1" | "MeetingTemplate2";
 
 /** Percentage-based focal point (0-100) for the custom flyer header image. */
 export interface FlyerImagePosition {
@@ -32,6 +32,8 @@ export interface FlyerPreviewProps {
   flyerQrDataUrl?: string;
   meetingTime?: string;
   meetingLocation?: string;
+  /** Meeting type (e.g. "Open Enrollment Meeting") — used by MeetingTemplate2's eyebrow. */
+  meetingType?: string;
   flyerSubtitle?: string;
   flyerTemplate: FlyerTemplateId;
   flyerLanguage?: "en" | "es";
@@ -56,6 +58,7 @@ export const FLYER_TEMPLATE_BENEFITS_CATEGORY: Record<FlyerTemplateId, string> =
   TopicalTemplate3: "Retirement",
   TopicalTemplate4: "Retirement",
   MeetingTemplate1: "Retirement",
+  MeetingTemplate2: "Retirement",
 };
 
 // ── Shared helpers ────────────────────────────────────────────
@@ -522,10 +525,11 @@ function AdditionalLogo({
 }
 
 // ── Dark footer #2 — full-bleed band with a boxed QR + scan copy ──
-// Used by TopicalTemplate4. Unlike DarkFooter, the QR sits on a white card at
-// the left and the copy is stacked to its right, with an optional URL line,
-// a short rule and a contact line. The band is navy by default and flips to a
-// light surface when the advisor chooses the light footer colour.
+// Used by TopicalTemplate4 and MeetingTemplate2. Unlike DarkFooter, the QR sits
+// on a white card at the left and the copy is stacked to its right. Callers can
+// supply custom copy (a single scan line, a contact line and an optional gold
+// pill) or use the default two-line "Benefits Hub" treatment with a URL + rule.
+// The band is navy by default and flips to a light surface for the light footer.
 function DarkFooter2({
   footerY,
   totalHeight,
@@ -533,6 +537,13 @@ function DarkFooter2({
   flyerQrDataUrl,
   bgColor,
   flyerLanguage = "en",
+  scanLine1,
+  scanLine2,
+  contactLine,
+  pillLabel,
+  showUrl = true,
+  showRule = true,
+  headingFontFamily,
 }: {
   footerY: number;
   totalHeight: number;
@@ -540,6 +551,14 @@ function DarkFooter2({
   flyerQrDataUrl?: string;
   bgColor: string;
   flyerLanguage?: "en" | "es";
+  scanLine1?: string;
+  scanLine2?: string;
+  contactLine?: string;
+  pillLabel?: string;
+  showUrl?: boolean;
+  showRule?: boolean;
+  /** Optional font for the scan line (MeetingTemplate2 uses the serif face). */
+  headingFontFamily?: string;
 }) {
   const isSpanish = flyerLanguage === "es";
   const isLight = bgColor === "#f3f3f3";
@@ -549,26 +568,45 @@ function DarkFooter2({
   const ruleColor = isLight ? "#9a97a8" : "#605d7a";
   const accentColor = "#ce8c2b";
 
-  const line1 = isSpanish ? "Escanee para explorar" : "Scan to explore";
-  const line2 = isSpanish ? "su Centro de Beneficios." : "your Benefits Hub.";
-  const questions = isSpanish
-    ? "\u00bfPreguntas? 877-757-3263 \u00b7 Ayuda en espa\u00f1ol"
-    : "Questions? 877-757-3263 \u00b7 Ayuda en espa\u00f1ol";
+  const line1 = scanLine1 ?? (isSpanish ? "Escanee para explorar" : "Scan to explore");
+  const line2 = scanLine2 ?? (isSpanish ? "su Centro de Beneficios." : "your Benefits Hub.");
+  const contact =
+    contactLine ??
+    (isSpanish
+      ? "\u00bfPreguntas? 877-757-3263 \u00b7 Ayuda en espa\u00f1ol"
+      : "Questions? 877-757-3263 \u00b7 Ayuda en espa\u00f1ol");
 
-  const qrSize = 122;
+  const displayUrl =
+    showUrl && flyerQrUrl
+      ? truncateText(
+          flyerQrUrl.replace(/^https?:\/\//i, "").replace(/\/$/, ""),
+          36,
+        )
+      : "";
+  const hasLine2 = !!line2;
+  const hasUrl = !!displayUrl;
+  const rich = hasLine2 || hasUrl || showRule;
+
+  const footerH = totalHeight - footerY;
+  const qrSize = Math.min(122, Math.max(80, footerH - 20));
   const qrX = 75;
-  const qrY = footerY + 21;
-  const displayUrl = flyerQrUrl
-    ? truncateText(
-        flyerQrUrl.replace(/^https?:\/\//i, "").replace(/\/$/, ""),
-        36,
-      )
-    : "";
+  const qrY = footerY + (footerH - qrSize) / 2;
+
+  // Compact layout drops straight from the scan line to the contact + pill;
+  // the rich layout keeps the original URL/rule/contact stack used by
+  // TopicalTemplate4.
+  const line1Y = footerY + (rich ? 46 : 38);
+  const line2Y = footerY + 80;
+  const urlY = footerY + 110;
+  const ruleY = footerY + 123;
+  const contactY = footerY + (rich ? 153 : 72);
+  const pillY = footerY + (rich ? 172 : 82);
+  const pillW = pillLabel ? 42 + pillLabel.length * 7.6 + 14 : 0;
 
   return (
     <>
       {/* Band background */}
-      <rect x="0" y={footerY} width="612" height={totalHeight - footerY} fill={barFill} />
+      <rect x="0" y={footerY} width="612" height={footerH} fill={barFill} />
 
       {/* QR card */}
       <rect x={qrX} y={qrY} width={qrSize} height={qrSize} rx="6" fill="#ffffff" />
@@ -605,22 +643,108 @@ function DarkFooter2({
       )}
 
       {/* Copy block */}
-      <text x="232" y={footerY + 46} fontSize="29" fontWeight="600" fill={headingColor}>
+      <text
+        x="232"
+        y={line1Y}
+        fontSize={rich ? 29 : 26}
+        fontWeight="600"
+        fill={headingColor}
+        fontFamily={headingFontFamily}
+      >
         {line1}
       </text>
-      <text x="232" y={footerY + 80} fontSize="29" fontWeight="600" fill={headingColor}>
-        {line2}
-      </text>
-      {displayUrl && (
-        <text x="232" y={footerY + 110} fontSize="16" fontWeight="500" fill={accentColor}>
+      {hasLine2 && (
+        <text x="232" y={line2Y} fontSize="29" fontWeight="600" fill={headingColor} fontFamily={headingFontFamily}>
+          {line2}
+        </text>
+      )}
+      {hasUrl && (
+        <text x="232" y={urlY} fontSize="16" fontWeight="500" fill={accentColor}>
           {displayUrl}
         </text>
       )}
-      <rect x="232" y={footerY + 123} width="42" height="3" rx="1.5" fill={ruleColor} />
-      <text x="232" y={footerY + 153} fontSize="13" fill={mutedColor}>
-        {questions}
-      </text>
+      {showRule && <rect x="232" y={ruleY} width="42" height="3" rx="1.5" fill={ruleColor} />}
+      {contact && (
+        <text x="232" y={contactY} fontSize="13" fill={mutedColor}>
+          {contact}
+        </text>
+      )}
+      {pillLabel && (
+        <g>
+          <rect x="232" y={pillY} width={pillW} height="30" rx="15" fill={accentColor} />
+          <rect
+            x="248"
+            y={pillY + 9}
+            width="14"
+            height="10"
+            rx="3"
+            fill="none"
+            stroke="#ffffff"
+            strokeWidth="1.4"
+          />
+          <path
+            d={`M252 ${pillY + 19} L255 ${pillY + 23} L259 ${pillY + 19}`}
+            fill="none"
+            stroke="#ffffff"
+            strokeWidth="1.4"
+          />
+          <text x="274" y={pillY + 20} fontSize="13" fontWeight="600" fill="#ffffff">
+            {pillLabel}
+          </text>
+        </g>
+      )}
     </>
+  );
+}
+
+// ── Benefit chip glyphs for MeetingTemplate2 ─────────────────
+function BenefitGlyph({
+  kind,
+  cx,
+  cy,
+  color,
+}: {
+  kind: "retirement" | "health" | "life";
+  cx: number;
+  cy: number;
+  color: string;
+}) {
+  if (kind === "health") {
+    return (
+      <path
+        d={`M ${cx} ${cy + 6} C ${cx - 10} ${cy - 2}, ${cx - 6} ${cy - 10}, ${cx} ${cy - 5} C ${cx + 6} ${cy - 10}, ${cx + 10} ${cy - 2}, ${cx} ${cy + 6} Z`}
+        fill="none"
+        stroke={color}
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
+    );
+  }
+  if (kind === "life") {
+    return (
+      <g fill="none" stroke={color} strokeWidth="1.3" strokeLinecap="round">
+        <circle cx={cx - 6} cy={cy - 3} r="3" />
+        <circle cx={cx + 6} cy={cy - 3} r="3" />
+        <path d={`M ${cx - 12} ${cy + 7} C ${cx - 12} ${cy + 1}, ${cx} ${cy + 1}, ${cx} ${cy + 7}`} />
+        <path d={`M ${cx} ${cy + 7} C ${cx} ${cy + 1}, ${cx + 12} ${cy + 1}, ${cx + 12} ${cy + 7}`} />
+      </g>
+    );
+  }
+  // Retirement — a coin with a dollar mark.
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r="8.5" fill="none" stroke={color} strokeWidth="1.3" />
+      <text
+        x={cx}
+        y={cy + 3.5}
+        textAnchor="middle"
+        fontSize="9"
+        fontWeight="700"
+        fill={color}
+      >
+        $
+      </text>
+    </g>
   );
 }
 
@@ -720,6 +844,42 @@ export function TemplateThumbnail({ id, bgColor }: { id: string; bgColor: string
           <rect x="5" y="76.5" width="34" height="1" rx="0.5" fill="#605d7a" opacity="0.5" />
         </svg>
       );
+    case "MeetingTemplate2":
+      return (
+        <svg viewBox="0 0 60 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+          <rect width="60" height="80" fill="white" />
+          {/* Header logo band */}
+          <rect x="5" y="4" width="13" height="7" rx="1" fill="#605d7a" opacity="0.55" />
+          <rect x="19" y="6" width="0.6" height="4" fill="#605d7a" opacity="0.6" />
+          <rect x="22" y="5.5" width="8" height="4" rx="0.5" fill="#605d7a" opacity="0.4" />
+          <rect x="32" y="5.5" width="8" height="4" rx="0.5" fill="#605d7a" opacity="0.4" />
+          <rect x="42" y="5.5" width="9" height="4" rx="0.5" fill="#605d7a" opacity="0.4" />
+          {/* Hero with headline */}
+          <rect y="13" width="60" height="26" fill="#5b4632" />
+          <rect x="5" y="24" width="24" height="3" rx="0.4" fill="white" opacity="0.95" />
+          <rect x="5" y="29" width="28" height="3" rx="0.4" fill="#bb995a" />
+          {/* Gold date badge */}
+          <rect x="44" y="30" width="12" height="14" fill="#bb995a" />
+          <rect x="47" y="33" width="6" height="1.4" fill="#0b1733" />
+          <rect x="48.5" y="36" width="3" height="4" fill="#0b1733" />
+          <rect x="46.5" y="41.5" width="7" height="1.2" fill="#0b1733" />
+          {/* Content */}
+          <rect x="5" y="46" width="22" height="1.5" rx="0.4" fill="#bb995a" />
+          <rect x="5" y="50" width="30" height="3" rx="0.4" fill="#0b1733" />
+          <rect x="5" y="55" width="20" height="1.6" rx="0.4" fill="#39404d" />
+          <rect x="5" y="59" width="38" height="1.2" rx="0.4" fill="#8a8f99" />
+          <rect x="5" y="62" width="32" height="1.2" rx="0.4" fill="#8a8f99" />
+          {/* Benefit chips */}
+          <rect x="5" y="66" width="13" height="5" rx="2.5" fill="none" stroke="#bb995a" strokeWidth="0.8" />
+          <rect x="20" y="66" width="15" height="5" rx="2.5" fill="none" stroke="#bb995a" strokeWidth="0.8" />
+          <rect x="37" y="66" width="13" height="5" rx="2.5" fill="none" stroke="#bb995a" strokeWidth="0.8" />
+          {/* Navy footer with QR + copy */}
+          <rect y="73" width="60" height="7" fill="#0b1733" />
+          <rect x="5" y="74.5" width="5" height="4" rx="0.5" fill="white" />
+          <rect x="13" y="75" width="18" height="1.4" rx="0.3" fill="white" opacity="0.9" />
+          <rect x="13" y="77.5" width="14" height="1" rx="0.3" fill="#d9d7e0" opacity="0.8" />
+        </svg>
+      );
     case "MeetingTemplate1":
       return (
         <svg viewBox="0 0 60 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
@@ -757,6 +917,7 @@ export function FlyerPreview(props: FlyerPreviewProps) {
     case "TopicalTemplate3": return <TopicalTemplate3 {...suffixed} />;
     case "TopicalTemplate4": return <TopicalTemplate4 {...suffixed} />;
     case "MeetingTemplate1": return <MeetingTemplate1 {...suffixed} />;
+    case "MeetingTemplate2": return <MeetingTemplate2 {...suffixed} />;
     default:                 return <TopicalTemplate1 {...suffixed} />;
   }
 }
@@ -1482,6 +1643,317 @@ export function MeetingTemplate1(allProps: FlyerPreviewProps & { sid?: string; s
   );
 }
 
+
+// ── Meeting Template 2 — logo band + hero photo + gold date badge ──
+/**
+ * Hero-led meeting flyer: the same header logo band as TopicalTemplate4, a
+ * full-bleed photograph with a two-line serif headline, an overlapping gold
+ * date badge, a gold eyebrow over the time/location block, benefit chips, and
+ * the shared navy `DarkFooter2` band.
+ *
+ * The five reference artboards (1 / 4 sessions / group + 1-on-1 / reduced chip
+ * sets) all share this frame; the component adapts to whatever meeting data is
+ * supplied.
+ */
+export function MeetingTemplate2(allProps: FlyerPreviewProps & { sid?: string; svgCls?: string }) {
+  const {
+    headline, body, bgColor, startDate, planName, planLogo,
+    flyerImage, flyerImagePosition, flyerQrUrl, flyerQrDataUrl,
+    meetingTime, meetingLocation, meetingType,
+    organizationLogo, additionalLogos, disclaimerText, flyerLanguage,
+    benefitsCategory, sid = "", svgCls,
+  } = allProps;
+  const templateBenefitsCategory =
+    benefitsCategory ?? FLYER_TEMPLATE_BENEFITS_CATEGORY.MeetingTemplate2;
+  const { formattedTime, wrapText } = useFlyerHelpers(startDate, meetingTime);
+  const { url: resolvedPlanLogo } = useBrandingImageUrl(planLogo);
+
+  const isEs = flyerLanguage === "es";
+  const NAVY = "#0b1733";
+  const GOLD = "#bb995a";
+  const WHITE = "#ffffff";
+
+  // Header: plan sponsor on the left, advisor logo + user logos on the right.
+  const extraLogos = [organizationLogo, ...(additionalLogos ?? [])]
+    .filter((logo): logo is string => !!logo)
+    .slice(0, 3);
+
+  // Hero — full-bleed band, y=127..380.
+  const HERO_Y = 127;
+  const HERO_W = 612;
+  const HERO_H = 253;
+  const heroImgW = HERO_W * 1.5;
+  const heroImgH = HERO_H * 1.5;
+  const posX = flyerImagePosition?.x ?? 50;
+  const posY = flyerImagePosition?.y ?? 50;
+  const heroImgX = -(heroImgW - HERO_W) * (posX / 100);
+  const heroImgY = HERO_Y - (heroImgH - HERO_H) * (posY / 100);
+
+  const joinLabel = isEs ? "Acomp\u00e1\u00f1enos a" : "Join Us for";
+  const eventName = truncateText(
+    (headline || (isEs ? "Inscripci\u00f3n Abierta" : "Open Enrollment")).trim(),
+    22,
+  );
+
+  const dateBadge = (() => {
+    const clean = (startDate || "").split("T")[0].split(" ")[0];
+    const parts = clean.split("-").map(Number);
+    if (parts.length === 3 && parts.every((n) => Number.isFinite(n))) {
+      const dt = new Date(parts[0], parts[1] - 1, parts[2]);
+      if (!isNaN(dt.getTime()) && dt.getDate() === parts[2]) {
+        const locale = isEs ? "es-ES" : "en-US";
+        return {
+          month: dt.toLocaleDateString(locale, { month: "short" }).toUpperCase().replace(".", ""),
+          day: String(parts[2]),
+          weekday: dt.toLocaleDateString(locale, { weekday: "long" }).toUpperCase(),
+        };
+      }
+    }
+    return { month: "SAVE", day: "\u2013", weekday: "DATE" };
+  })();
+
+  const eyebrow = truncateText(
+    (meetingType || (isEs ? "Reuni\u00f3n de Beneficios" : "Open Enrollment Meeting")).toUpperCase(),
+    40,
+  );
+  const timeTitle = formattedTime || (isEs ? "Hora por confirmar" : "Time TBD");
+  const locationText = truncateText(
+    meetingLocation || (isEs ? "Ubicaci\u00f3n por confirmar" : "Location TBD"),
+    46,
+  );
+  const bodyLines = body ? wrapText(body, 62).slice(0, 3) : [];
+
+  const chipSource: Array<{ kind: "retirement" | "health" | "life"; label: string }> = isEs
+    ? [
+        { kind: "retirement", label: "Jubilaci\u00f3n" },
+        { kind: "health", label: "Salud Grupal" },
+        { kind: "life", label: "Vida Grupal" },
+      ]
+    : [
+        { kind: "retirement", label: "Retirement" },
+        { kind: "health", label: "Group Health" },
+        { kind: "life", label: "Group Life" },
+      ];
+  let chipCursor = 40;
+  const chipItems = chipSource.map((chip) => {
+    const width = 44 + chip.label.length * 8.2;
+    const item = { ...chip, x: chipCursor, width };
+    chipCursor += width + 12;
+    return item;
+  });
+
+  const footerY = 595;
+  const disclaimerLines = wrapSingleLine(
+    disclaimerText || FLYER_DISCLAIMER_DEFAULT,
+    122,
+  ).slice(0, 4);
+
+  return (
+    <svg
+      viewBox="0 0 612 792"
+      xmlns="http://www.w3.org/2000/svg"
+      className={svgCls ?? "w-full h-auto max-w-[420px] rounded-xl shadow-sm border"}
+      style={{ fontFamily: "'Poppins', 'Helvetica Neue', Arial, sans-serif" }}
+      data-benefits-category={templateBenefitsCategory}
+    >
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap');`}</style>
+
+      <defs>
+        <clipPath id={`m2-heroClip${sid}`}>
+          <rect x="0" y={HERO_Y} width={HERO_W} height={HERO_H} />
+        </clipPath>
+        <linearGradient id={`m2-overlay${sid}`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#000000" stopOpacity="0.55" />
+          <stop offset="55%" stopColor="#000000" stopOpacity="0.12" />
+          <stop offset="100%" stopColor="#000000" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+
+      {/* Page background */}
+      <rect width="612" height="792" fill={WHITE} />
+
+      {/* Hero photograph + overlay + serif headline */}
+      <g clipPath={`url(#m2-heroClip${sid})`}>
+        {flyerImage ? (
+          <image
+            href={flyerImage}
+            x={heroImgX}
+            y={heroImgY}
+            width={heroImgW}
+            height={heroImgH}
+            preserveAspectRatio="xMinYMin slice"
+          />
+        ) : (
+          <image
+            href="/create-flyer-images/meeting/template_05/hero.jpg"
+            x="0"
+            y={HERO_Y}
+            width={HERO_W}
+            height={HERO_H}
+            preserveAspectRatio="xMidYMid slice"
+          />
+        )}
+        <rect x="0" y={HERO_Y} width={HERO_W} height={HERO_H} fill={`url(#m2-overlay${sid})`} />
+        <text
+          x="45"
+          y="314"
+          fill={WHITE}
+          fontSize="40"
+          fontWeight="600"
+          letterSpacing="-0.5"
+          fontFamily="'Playfair Display', Georgia, 'Times New Roman', serif"
+        >
+          {joinLabel}
+        </text>
+        <text
+          x="45"
+          y="362"
+          fill={GOLD}
+          fontSize="40"
+          fontWeight="600"
+          letterSpacing="-0.5"
+          fontFamily="'Playfair Display', Georgia, 'Times New Roman', serif"
+        >
+          {renderFormattedText(eventName)}
+        </text>
+      </g>
+
+      {/* Header logo band */}
+      {resolvedPlanLogo ? (
+        <image
+          href={resolvedPlanLogo}
+          x="42"
+          y="38"
+          width="128"
+          height="66"
+          preserveAspectRatio="xMidYMid meet"
+        />
+      ) : (
+        <text x="42" y="78" fill={NAVY} fontSize="17" fontWeight="700" fontFamily="'Playfair Display', Georgia, serif">
+          {truncateText(planName, 18)}
+        </text>
+      )}
+      {extraLogos.length > 0 && (
+        <>
+          <line x1="186" y1="54" x2="186" y2="96" stroke="#605d7a" strokeWidth="1.2" />
+          {extraLogos.map((logo, i) => {
+            const slotW = 376 / extraLogos.length;
+            const cx = 198 + slotW * i + slotW / 2;
+            const w = Math.min(112, slotW - 8);
+            return (
+              <AdditionalLogo
+                key={`logo-${i}`}
+                src={logo}
+                x={cx - w / 2}
+                y={42}
+                width={w}
+                height={54}
+              />
+            );
+          })}
+        </>
+      )}
+
+      {/* Gold date badge — overlaps the hero and content column */}
+      <g>
+        <rect x="452" y="294" width="124" height="143" fill={GOLD} />
+        <text x="514" y="321" textAnchor="middle" fill={NAVY} fontSize="20" fontWeight="800" letterSpacing="2">
+          {dateBadge.month}
+        </text>
+        <text
+          x="514"
+          y={dateBadge.day.length > 2 ? 392 : 398}
+          textAnchor="middle"
+          fill={NAVY}
+          fontSize={dateBadge.day.length > 2 ? 44 : 72}
+          fontWeight="600"
+          fontFamily="'Playfair Display', Georgia, 'Times New Roman', serif"
+        >
+          {dateBadge.day}
+        </text>
+        <text x="514" y="424" textAnchor="middle" fill={NAVY} fontSize="17" fontWeight="800" letterSpacing="1.5">
+          {dateBadge.weekday}
+        </text>
+      </g>
+
+      {/* Details block */}
+      <text x="40" y="398" fill={GOLD} fontSize="12.5" fontWeight="700" letterSpacing="2.2">
+        {eyebrow}
+      </text>
+      <text x="40" y="427" fill={NAVY} fontSize="26" fontWeight="800" letterSpacing="-0.3">
+        {timeTitle}
+      </text>
+      <text x="40" y="452" fill="#2a3140" fontSize="16.5" fontWeight="500">
+        {locationText}
+      </text>
+      {bodyLines.length > 0 && (
+        <g>
+          {bodyLines.map((line, i) => (
+            <text key={`b-${i}`} x="40" y={483 + i * 18} fill="#1f2937" fontSize="14.5" fontWeight="400">
+              {renderFormattedText(line)}
+            </text>
+          ))}
+        </g>
+      )}
+
+      {/* Benefit chips */}
+      {chipItems.map((chip) => (
+        <g key={chip.label}>
+          <rect
+            x={chip.x}
+            y="534"
+            width={chip.width}
+            height="34"
+            rx="17"
+            fill="none"
+            stroke={GOLD}
+            strokeWidth="1.2"
+          />
+          <BenefitGlyph kind={chip.kind} cx={chip.x + 18} cy={551} color={GOLD} />
+          <text
+            x={chip.x + 34}
+            y="551"
+            dominantBaseline="middle"
+            fill={NAVY}
+            fontSize="14"
+            fontWeight="600"
+          >
+            {chip.label}
+          </text>
+        </g>
+      ))}
+
+      {/* Navy QR footer */}
+      <DarkFooter2
+        footerY={footerY}
+        totalHeight={712}
+        flyerQrUrl={flyerQrUrl}
+        flyerQrDataUrl={flyerQrDataUrl}
+        bgColor={bgColor}
+        flyerLanguage={flyerLanguage}
+        scanLine1={isEs ? "Escanee para reservar su lugar." : "Scan to save your seat."}
+        scanLine2=""
+        contactLine={isEs ? "\u00bfPreguntas? 877-757-3263" : "Questions? 877-757-3263"}
+        pillLabel={"Ayuda en espa\u00f1ol"}
+        showUrl={false}
+        showRule={false}
+        headingFontFamily="'Playfair Display', Georgia, 'Times New Roman', serif"
+      />
+
+      {/* Disclaimer on the white band below the footer */}
+      {disclaimerLines.map((line, i) => (
+        <text key={`d-${i}`} x="40" y={727 + i * 10.5} fill="#605d7a" fontSize="8.5" fontWeight="400">
+          {line}
+        </text>
+      ))}
+
+      {/* Powered by PLANtelligence */}
+      <text x="572" y="782" textAnchor="end" fill="#b9b8c4" fontSize="9" fontWeight="400" letterSpacing="0.5">
+        powered by PLANtelligence®
+      </text>
+    </svg>
+  );
+}
 
 // ── Shared sub-components ─────────────────────────────────────
 

@@ -197,18 +197,30 @@ interface FlyerTemplateDefaults {
 }
 
 const MEETING_TEMPLATE_DEFAULTS: Record<string, FlyerTemplateDefaults> = {
-  "MeetingTemplate1": { 
-    headline: "Transform Your Tomorrow: {#ffcb0a}Unlock the Full Potential of your 401(k)!{/}", 
-    subtitle: "Join Our Retirement Plan Advisory Team To Discover How To Maximize Your Retirement Benefits", 
-    body: "Mark your calendar for this upcoming benefits event.", 
+  "MeetingTemplate1": {
+    headline: "Transform Your Tomorrow: {#ffcb0a}Unlock the Full Potential of your 401(k)!{/}",
+    subtitle: "Join Our Retirement Plan Advisory Team To Discover How To Maximize Your Retirement Benefits",
+    body: "Mark your calendar for this upcoming benefits event.",
+    category: "Retirement" },
+  "MeetingTemplate2": {
+    headline: "Open Enrollment",
+    subtitle: "Join us for this important session",
+    body: "Learn about your plan options, important deadlines, and how to make your elections.",
+    topic: "Open Enrollment Meeting",
     category: "Retirement" },
 };
 
 const MEETING_TEMPLATE_DEFAULTS_ES: Record<string, FlyerTemplateDefaults> = {
-  "MeetingTemplate1": { 
-    headline: "Transforme Su Mañana: {#ffcb0a}Descubra Cómo Maximizar Sus Beneficios de Jubilación!{/}", 
-    subtitle: "Únase a Nuestro Equipo de Asesoría de Planes de Jubilación para Descubrir Cómo Maximizar Sus Beneficios de Jubilación", 
+  "MeetingTemplate1": {
+    headline: "Transforme Su Mañana: {#ffcb0a}Descubra Cómo Maximizar Sus Beneficios de Jubilación!{/}",
+    subtitle: "Únase a Nuestro Equipo de Asesoría de Planes de Jubilación para Descubrir Cómo Maximizar Sus Beneficios de Jubilación",
     body: "Marque su calendario para este próximo evento de beneficios.",
+    category: "Retirement" },
+  "MeetingTemplate2": {
+    headline: "Inscripción Abierta",
+    subtitle: "Acompáñenos a esta importante sesión",
+    body: "Conozca las opciones de su plan, fechas límite importantes y cómo hacer sus elecciones.",
+    topic: "Reunión de Inscripción Abierta",
     category: "Retirement" },
 };
 
@@ -267,7 +279,7 @@ const TOPICAL_TEMPLATE_DEFAULTS_ES: Record<string, FlyerTemplateDefaults> = {
 };
 
 /** Flyer templates that support an optional custom header image. */
-const CUSTOM_FLYER_IMAGE_TEMPLATES = ["TopicalTemplate1", "TopicalTemplate2", "TopicalTemplate3", "TopicalTemplate4", "MeetingTemplate1"];
+const CUSTOM_FLYER_IMAGE_TEMPLATES = ["TopicalTemplate1", "TopicalTemplate2", "TopicalTemplate3", "TopicalTemplate4", "MeetingTemplate1", "MeetingTemplate2"];
 
 /** Destination image region (width × height) for each template's custom flyer image. */
 const FLYER_IMAGE_REGIONS: Record<string, { width: number; height: number }> = {
@@ -276,6 +288,7 @@ const FLYER_IMAGE_REGIONS: Record<string, { width: number; height: number }> = {
   TopicalTemplate3: { width: 612, height: 240 },
   TopicalTemplate4: { width: 262, height: 382 },
   MeetingTemplate1: { width: 612, height: 260 },
+  MeetingTemplate2: { width: 612, height: 253 },
 };
 
 export default function MarketingAssetModal({
@@ -2556,6 +2569,7 @@ export default function MarketingAssetModal({
                         flyerQrDataUrl={flyerQrDataUrl}
                         meetingTime={meetingTime}
                         meetingLocation={meetingLocation}
+                        meetingType={meetingType}
                         flyerSubtitle={flyerSubtitle}
                         flyerTemplate={flyerTemplate}
                         flyerLanguage={flyerLanguage}
@@ -2596,6 +2610,7 @@ export default function MarketingAssetModal({
                   flyerQrDataUrl={flyerQrDataUrl}
                   meetingTime={meetingTime}
                   meetingLocation={meetingLocation}
+                  meetingType={meetingType}
                   flyerSubtitle={flyerSubtitle}
                   flyerTemplate={flyerTemplate}
                   flyerLanguage={flyerLanguage}
@@ -3131,6 +3146,7 @@ function PreviewPane({
   flyerQrDataUrl,
   meetingTime,
   meetingLocation,
+  meetingType,
   flyerSubtitle,
   flyerTemplate,
   flyerLanguage,
@@ -3164,6 +3180,7 @@ function PreviewPane({
   flyerQrDataUrl?: string;
   meetingTime?: string;
   meetingLocation?: string;
+  meetingType?: string;
   flyerSubtitle?: string;
   flyerTemplate?: string;
   flyerLanguage?: "en" | "es";
@@ -3287,6 +3304,7 @@ function PreviewPane({
           flyerQrDataUrl={flyerQrDataUrl}
           meetingTime={meetingTime}
           meetingLocation={meetingLocation}
+          meetingType={meetingType}
           flyerSubtitle={flyerSubtitle}
           flyerTemplate={flyerTemplate as FlyerTemplateId}
           flyerLanguage={flyerLanguage}

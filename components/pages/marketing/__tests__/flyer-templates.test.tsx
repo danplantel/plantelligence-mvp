@@ -10,6 +10,7 @@ import {
   FLYER_TEMPLATE_BENEFITS_CATEGORY,
   FlyerPreview,
   MeetingTemplate1,
+  MeetingTemplate2,
   TemplateThumbnail,
   TopicalTemplate1,
   TopicalTemplate2,
@@ -71,6 +72,7 @@ describe("flyer template shared helpers", () => {
       TopicalTemplate3: "Retirement",
       TopicalTemplate4: "Retirement",
       MeetingTemplate1: "Retirement",
+      MeetingTemplate2: "Retirement",
     });
   });
 
@@ -177,6 +179,7 @@ describe("TemplateThumbnail", () => {
     "TopicalTemplate3",
     "TopicalTemplate4",
     "MeetingTemplate1",
+    "MeetingTemplate2",
   ])("renders an SVG thumbnail for %s", (id) => {
     const { container } = render(<TemplateThumbnail id={id} bgColor="#23919c" />);
 
@@ -198,6 +201,7 @@ describe("FlyerPreview router", () => {
     ["TopicalTemplate3", TopicalTemplate3],
     ["TopicalTemplate4", TopicalTemplate4],
     ["MeetingTemplate1", MeetingTemplate1],
+    ["MeetingTemplate2", MeetingTemplate2],
   ] as const)("routes %s to its template", (template, Component) => {
     const { container, unmount } = render(
       <FlyerPreview {...baseProps} flyerTemplate={template} />,
@@ -373,6 +377,77 @@ describe("TopicalTemplate4", () => {
     expect(
       container.querySelector('image[href*="api.qrserver.com"]'),
     ).toBeInTheDocument();
+  });
+});
+
+describe("MeetingTemplate2", () => {
+  it("renders the default hero photo, date badge, and hero headline", () => {
+    const { container } = render(
+      <MeetingTemplate2
+        {...baseProps}
+        flyerTemplate="MeetingTemplate2"
+        headline="Open Enrollment"
+        startDate="2026-11-17"
+        meetingTime="10:00"
+        meetingLocation="Main Conference Room"
+        meetingType="Open Enrollment Meeting"
+      />,
+    );
+
+    expect(
+      container.querySelector(
+        'image[href="/create-flyer-images/meeting/template_05/hero.jpg"]',
+      ),
+    ).toBeInTheDocument();
+    expect(container.textContent).toContain("Join Us for");
+    expect(container.textContent).toContain("Open Enrollment");
+    expect(container.textContent).toContain("NOV");
+    expect(container.textContent).toContain("17");
+    expect(container.textContent).toContain("TUESDAY");
+    expect(container.textContent).toContain("OPEN ENROLLMENT MEETING");
+    expect(container.textContent).toContain("10:00 AM");
+    expect(container.textContent).toContain("Main Conference Room");
+  });
+
+  it("renders the shared dark QR footer with the save-your-seat copy", () => {
+    const { container } = render(
+      <MeetingTemplate2
+        {...baseProps}
+        flyerTemplate="MeetingTemplate2"
+        flyerQrUrl="https://hub.example/rsvp"
+      />,
+    );
+
+    expect(container.textContent).toContain("Scan to save your seat.");
+    expect(container.textContent).toContain("Ayuda en español");
+    expect(
+      container.querySelector('image[href*="api.qrserver.com"]'),
+    ).toBeInTheDocument();
+  });
+
+  it("uses the supplied logos for the header band and renders benefit chips", () => {
+    const { container } = render(
+      <MeetingTemplate2
+        {...baseProps}
+        flyerTemplate="MeetingTemplate2"
+        planLogo="https://cdn.example/plan.png"
+        organizationLogo="https://cdn.example/advisor.png"
+        additionalLogos={["https://cdn.example/carrier.png"]}
+      />,
+    );
+
+    expect(
+      container.querySelector('image[href="https://cdn.example/plan.png"]'),
+    ).toBeInTheDocument();
+    expect(
+      container.querySelector('image[href="https://cdn.example/advisor.png"]'),
+    ).toBeInTheDocument();
+    expect(
+      container.querySelector('image[href="https://cdn.example/carrier.png"]'),
+    ).toBeInTheDocument();
+    expect(container.textContent).toContain("Retirement");
+    expect(container.textContent).toContain("Group Health");
+    expect(container.textContent).toContain("Group Life");
   });
 });
 
