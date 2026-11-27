@@ -659,6 +659,10 @@ export default function MarketingPage() {
   const [previewAsset, setPreviewAsset] = useState<SavedAsset | null>(null);
   const handlePreviewAsset = useCallback((asset: SavedAsset) => {
     setActiveAssetType(asset.type);
+    // A preview is read-only — make sure no earlier edit state leaks in.
+    setEditingAsset(null);
+    setEditingFlyerStep(undefined);
+    setEditingPortalElement(undefined);
     setPreviewAsset(asset);
     setModalOpen(true);
   }, []);
@@ -841,6 +845,14 @@ export default function MarketingPage() {
                       type="button"
                       className="group relative flex flex-col items-center text-center rounded-2xl border-2 border-transparent bg-white dark:bg-gray-800 shadow-sm hover:shadow-xl hover:border-[var(--accent-blue)]/40 transition-all duration-300 ease-out hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--accent-blue)] overflow-hidden"
                       onClick={() => {
+                        // Start a fresh create flow. Without clearing these, a
+                        // previously edited flyer left `initialFlyerStep` at 3,
+                        // so the modal opened on the final slide with its
+                        // Download PDF button already showing.
+                        setEditingAsset(null);
+                        setPreviewAsset(null);
+                        setEditingFlyerStep(undefined);
+                        setEditingPortalElement(undefined);
                         setActiveAssetType(option.id as AssetType);
                         setModalOpen(true);
                       }}

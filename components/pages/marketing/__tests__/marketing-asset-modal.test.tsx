@@ -156,6 +156,8 @@ describe("MarketingAssetModal", () => {
 
     expect(screen.getByText("Meeting Based")).toBeInTheDocument();
     expect(screen.getByText("Topical Flyer")).toBeInTheDocument();
+    // No PDF until the flyer is actually designed (final step).
+    expect(screen.queryByText("Download PDF")).not.toBeInTheDocument();
   });
 
   it("advances a meeting flyer to the benefit category step", async () => {
@@ -171,6 +173,7 @@ describe("MarketingAssetModal", () => {
     renderModal({ initialFlyerStep: 3 });
 
     expect(screen.getByText("Customize Template")).toBeInTheDocument();
+    expect(screen.getByText("Download PDF")).toBeInTheDocument();
   });
 
   it("renders preview-only flyers without form actions", () => {
