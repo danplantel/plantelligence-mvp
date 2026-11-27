@@ -50,12 +50,14 @@ vi.mock("../flyer-templates", () => ({
   TopicalTemplate1: () => <div />,
   TopicalTemplate2: () => <div />,
   TopicalTemplate3: () => <div />,
+  TopicalTemplate4: () => <div />,
   MeetingTemplate1: () => <div />,
   FLYER_TEMPLATE_BENEFITS_CATEGORY: {
     MeetingTemplate1: "Retirement",
     TopicalTemplate1: "Retirement",
     TopicalTemplate2: "Group Health",
     TopicalTemplate3: "Group Life",
+    TopicalTemplate4: "Retirement",
   },
 }));
 

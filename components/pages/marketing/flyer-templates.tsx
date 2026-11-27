@@ -2,7 +2,7 @@
 
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 
-export type FlyerTemplateId = "TopicalTemplate1" | "TopicalTemplate2" | "TopicalTemplate3" | "MeetingTemplate1";
+export type FlyerTemplateId = "TopicalTemplate1" | "TopicalTemplate2" | "TopicalTemplate3" | "TopicalTemplate4" | "MeetingTemplate1";
 
 /** Percentage-based focal point (0-100) for the custom flyer header image. */
 export interface FlyerImagePosition {
@@ -19,6 +19,13 @@ export interface FlyerPreviewProps {
   planName: string;
   planLogo?: string;
   organizationLogo?: string;
+  /**
+   * Up to three extra sponsor/carrier logos shown to the right of the vertical
+   * divider in the header of templates that support a logo band
+   * (currently `TopicalTemplate4`). The divider itself only renders when at
+   * least one additional logo is present.
+   */
+  additionalLogos?: string[];
   disclaimerText?: string;
   flyerImage?: string;
   flyerQrUrl?: string;
@@ -47,6 +54,7 @@ export const FLYER_TEMPLATE_BENEFITS_CATEGORY: Record<FlyerTemplateId, string> =
   TopicalTemplate1: "Retirement",
   TopicalTemplate2: "Retirement",
   TopicalTemplate3: "Retirement",
+  TopicalTemplate4: "Retirement",
   MeetingTemplate1: "Retirement",
 };
 
@@ -479,6 +487,143 @@ function DarkFooter({
   );
 }
 
+/**
+ * A single user-supplied header logo for TopicalTemplate4.
+ *
+ * Kept as its own component so `useBrandingImageUrl` can be called once per
+ * logo (hooks cannot run inside a `.map` in the parent). Returns nothing when
+ * the value cannot be resolved so missing slots collapse without a gap.
+ */
+function AdditionalLogo({
+  src,
+  x,
+  y,
+  width,
+  height,
+}: {
+  src: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}) {
+  const { url } = useBrandingImageUrl(src);
+  if (!url) return null;
+  return (
+    <image
+      href={url}
+      x={x}
+      y={y}
+      width={width}
+      height={height}
+      preserveAspectRatio="xMidYMid meet"
+    />
+  );
+}
+
+// ── Dark footer #2 — full-bleed band with a boxed QR + scan copy ──
+// Used by TopicalTemplate4. Unlike DarkFooter, the QR sits on a white card at
+// the left and the copy is stacked to its right, with an optional URL line,
+// a short rule and a contact line. The band is navy by default and flips to a
+// light surface when the advisor chooses the light footer colour.
+function DarkFooter2({
+  footerY,
+  totalHeight,
+  flyerQrUrl,
+  flyerQrDataUrl,
+  bgColor,
+  flyerLanguage = "en",
+}: {
+  footerY: number;
+  totalHeight: number;
+  flyerQrUrl?: string;
+  flyerQrDataUrl?: string;
+  bgColor: string;
+  flyerLanguage?: "en" | "es";
+}) {
+  const isSpanish = flyerLanguage === "es";
+  const isLight = bgColor === "#f3f3f3";
+  const barFill = isLight ? "#f3f3f3" : "#05091f";
+  const headingColor = isLight ? "#05091f" : "#ffffff";
+  const mutedColor = isLight ? "#3a3b47" : "#d9d7e0";
+  const ruleColor = isLight ? "#9a97a8" : "#605d7a";
+  const accentColor = "#ce8c2b";
+
+  const line1 = isSpanish ? "Escanee para explorar" : "Scan to explore";
+  const line2 = isSpanish ? "su Centro de Beneficios." : "your Benefits Hub.";
+  const questions = isSpanish
+    ? "\u00bfPreguntas? 877-757-3263 \u00b7 Ayuda en espa\u00f1ol"
+    : "Questions? 877-757-3263 \u00b7 Ayuda en espa\u00f1ol";
+
+  const qrSize = 122;
+  const qrX = 75;
+  const qrY = footerY + 21;
+  const displayUrl = flyerQrUrl
+    ? truncateText(
+        flyerQrUrl.replace(/^https?:\/\//i, "").replace(/\/$/, ""),
+        36,
+      )
+    : "";
+
+  return (
+    <>
+      {/* Band background */}
+      <rect x="0" y={footerY} width="612" height={totalHeight - footerY} fill={barFill} />
+
+      {/* QR card */}
+      <rect x={qrX} y={qrY} width={qrSize} height={qrSize} rx="6" fill="#ffffff" />
+      {flyerQrDataUrl ? (
+        <image
+          href={flyerQrDataUrl}
+          x={qrX + 12}
+          y={qrY + 12}
+          width={qrSize - 24}
+          height={qrSize - 24}
+          preserveAspectRatio="xMidYMid meet"
+        />
+      ) : flyerQrUrl ? (
+        <image
+          href={`https://api.qrserver.com/v1/create-qr-code/?size=${qrSize - 24}x${qrSize - 24}&data=${encodeURIComponent(flyerQrUrl)}`}
+          x={qrX + 12}
+          y={qrY + 12}
+          width={qrSize - 24}
+          height={qrSize - 24}
+          preserveAspectRatio="xMidYMid meet"
+        />
+      ) : (
+        <rect
+          x={qrX + 24}
+          y={qrY + 24}
+          width={qrSize - 48}
+          height={qrSize - 48}
+          rx="2"
+          fill="none"
+          stroke="#cccccc"
+          strokeWidth="1"
+          strokeDasharray="4,4"
+        />
+      )}
+
+      {/* Copy block */}
+      <text x="232" y={footerY + 46} fontSize="29" fontWeight="600" fill={headingColor}>
+        {line1}
+      </text>
+      <text x="232" y={footerY + 80} fontSize="29" fontWeight="600" fill={headingColor}>
+        {line2}
+      </text>
+      {displayUrl && (
+        <text x="232" y={footerY + 110} fontSize="16" fontWeight="500" fill={accentColor}>
+          {displayUrl}
+        </text>
+      )}
+      <rect x="232" y={footerY + 123} width="42" height="3" rx="1.5" fill={ruleColor} />
+      <text x="232" y={footerY + 153} fontSize="13" fill={mutedColor}>
+        {questions}
+      </text>
+    </>
+  );
+}
+
 // ── Mini thumbnail SVGs for the template selector ─────────────
 
 export function TemplateThumbnail({ id, bgColor }: { id: string; bgColor: string }) {
@@ -541,6 +686,40 @@ export function TemplateThumbnail({ id, bgColor }: { id: string; bgColor: string
           <rect y="75" width="60" height="5" fill="#111" />
         </svg>
       );
+    case "TopicalTemplate4":
+      return (
+        <svg viewBox="0 0 60 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+          <rect width="60" height="80" fill="#fdfdf9" />
+          {/* Header logo band */}
+          <rect x="5" y="4" width="13" height="7" rx="1" fill="#605d7a" opacity="0.55" />
+          <rect x="19" y="6" width="0.6" height="4" fill="#605d7a" opacity="0.6" />
+          <rect x="22" y="5.5" width="8" height="4" rx="0.5" fill="#605d7a" opacity="0.4" />
+          <rect x="32" y="5.5" width="8" height="4" rx="0.5" fill="#605d7a" opacity="0.4" />
+          <rect x="42" y="5.5" width="9" height="4" rx="0.5" fill="#605d7a" opacity="0.4" />
+          {/* Headline + body */}
+          <rect x="5" y="17" width="22" height="4" rx="0.5" fill="#08091a" opacity="0.85" />
+          <rect x="5" y="23" width="18" height="4" rx="0.5" fill="#08091a" opacity="0.85" />
+          <rect x="5" y="29" width="20" height="4" rx="0.5" fill="#ce8c2b" />
+          <rect x="5" y="36" width="9" height="0.8" fill="#605d7a" />
+          <rect x="5" y="40" width="24" height="1.6" rx="0.8" fill="#08091a" opacity="0.45" />
+          <rect x="5" y="43" width="21" height="1.6" rx="0.8" fill="#08091a" opacity="0.45" />
+          <rect x="5" y="46" width="17" height="1.6" rx="0.8" fill="#08091a" opacity="0.45" />
+          {/* Hero image */}
+          <rect x="34" y="14" width="26" height="38" fill="#c9b79c" />
+          <circle cx="47" cy="27" r="6" fill="#8f7f6a" opacity="0.6" />
+          {/* Dark footer with QR */}
+          <rect y="52" width="60" height="20" fill="#05091f" />
+          <rect x="6" y="56" width="12" height="12" rx="1" fill="white" />
+          <rect x="8.5" y="58.5" width="7" height="7" fill="#05091f" opacity="0.85" />
+          <rect x="22" y="57" width="20" height="3" rx="0.4" fill="#ffffff" opacity="0.9" />
+          <rect x="22" y="62" width="16" height="3" rx="0.4" fill="#ffffff" opacity="0.9" />
+          <rect x="22" y="67" width="13" height="1.2" rx="0.4" fill="#ce8c2b" />
+          {/* Disclaimer strip */}
+          <rect y="72" width="60" height="8" fill="#fdfdf9" />
+          <rect x="5" y="74" width="40" height="1" rx="0.5" fill="#605d7a" opacity="0.5" />
+          <rect x="5" y="76.5" width="34" height="1" rx="0.5" fill="#605d7a" opacity="0.5" />
+        </svg>
+      );
     case "MeetingTemplate1":
       return (
         <svg viewBox="0 0 60 80" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
@@ -576,6 +755,7 @@ export function FlyerPreview(props: FlyerPreviewProps) {
   switch (rest.flyerTemplate) {
     case "TopicalTemplate2": return <TopicalTemplate2 {...suffixed} />;
     case "TopicalTemplate3": return <TopicalTemplate3 {...suffixed} />;
+    case "TopicalTemplate4": return <TopicalTemplate4 {...suffixed} />;
     case "MeetingTemplate1": return <MeetingTemplate1 {...suffixed} />;
     default:                 return <TopicalTemplate1 {...suffixed} />;
   }
@@ -951,6 +1131,213 @@ export function TopicalTemplate3(allProps: FlyerPreviewProps & { sid?: string; s
 
       {/* Powered by PLANtelligence */}
       <text x="306" y={834} textAnchor="middle" fill="#c1c1c1" fontSize="10" fontWeight="400" letterSpacing="1">
+        powered by PLANtelligence®
+      </text>
+    </svg>
+  );
+}
+
+// ── Topical Template 4 — editorial serif + logo band ─────────
+/**
+ * Full-bleed editorial flyer: a header logo band (plan-sponsor logo on the
+ * left, then an optional auto-divider and up to three user-supplied logos), a
+ * large serif headline whose final line is gold, a tall hero photograph on the
+ * right, and the navy QR footer (`DarkFooter2`).
+ */
+export function TopicalTemplate4(allProps: FlyerPreviewProps & { sid?: string; svgCls?: string }) {
+  const {
+    headline, body, bgColor, startDate, planName, planLogo,
+    flyerImage, flyerImagePosition, flyerQrUrl, flyerQrDataUrl, flyerSubtitle,
+    disclaimerText, flyerLanguage, additionalLogos,
+    benefitsCategory, sid = "", svgCls,
+  } = allProps;
+  const templateBenefitsCategory =
+    benefitsCategory ?? FLYER_TEMPLATE_BENEFITS_CATEGORY.TopicalTemplate4;
+  const { wrapText } = useFlyerHelpers(startDate);
+  const { url: resolvedPlanLogo } = useBrandingImageUrl(planLogo);
+  const additional = (additionalLogos ?? []).filter((logo) => !!logo).slice(0, 3);
+
+  const NAVY = "#08091a";
+  const GOLD = "#ce8c2b";
+  const CREAM = "#fdfdf9";
+  const DIVIDER = "#605d7a";
+  const disclaimerLines = wrapSingleLine(
+    disclaimerText || FLYER_DISCLAIMER_DEFAULT,
+    120,
+  ).slice(0, 5);
+
+  // Headline: honour explicit line breaks, then wrap each into the serif
+  // column. Only the final visible line is gold, mirroring the artwork.
+  const headlineLines = (headline || "")
+    .split("\n")
+    .flatMap((line) => wrapSingleLine(line.trim(), 12))
+    .filter((line) => line.length > 0)
+    .slice(0, 3);
+  // Only a genuine multi-line headline gets its last line in gold; a lone line
+  // stays navy so an edited one-line flyer is not rendered entirely in gold.
+  const goldLineIndex = headlineLines.length > 1 ? headlineLines.length - 1 : -1;
+  const bodyLines = body ? wrapText(body, 27).slice(0, 6) : [];
+  const subtitleText = flyerSubtitle ? truncateText(flyerSubtitle, 44) : "";
+
+  // Hero photo — right-hand column, from y=137 to the footer (515).
+  const HERO_X = 350;
+  const HERO_Y = 137;
+  const HERO_W = 262;
+  const HERO_H = 382;
+  const footerY = 515;
+  const heroImgW = HERO_W * 1.5;
+  const heroImgH = HERO_H * 1.5;
+  const posX = flyerImagePosition?.x ?? 50;
+  const posY = flyerImagePosition?.y ?? 50;
+  const heroImgX = HERO_X - (heroImgW - HERO_W) * (posX / 100);
+  const heroImgY = HERO_Y - (heroImgH - HERO_H) * (posY / 100);
+
+  return (
+    <svg
+      viewBox="0 0 612 792"
+      xmlns="http://www.w3.org/2000/svg"
+      className={svgCls ?? "w-full h-auto max-w-[420px] rounded-xl shadow-sm border"}
+      style={{ fontFamily: "'Poppins', 'Helvetica Neue', Arial, sans-serif" }}
+      data-benefits-category={templateBenefitsCategory}
+    >
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Poppins:wght@300;400;500;600&display=swap');`}</style>
+
+      <defs>
+        <clipPath id={`t4-photoClip${sid}`}>
+          <rect x={HERO_X} y={HERO_Y} width={HERO_W} height={HERO_H} />
+        </clipPath>
+      </defs>
+
+      {/* Cream page background */}
+      <rect width="612" height="792" fill={CREAM} />
+
+      {/* Hero photograph (custom flyer image, else the template default) */}
+      <g clipPath={`url(#t4-photoClip${sid})`}>
+        {flyerImage ? (
+          <image
+            href={flyerImage}
+            x={heroImgX}
+            y={heroImgY}
+            width={heroImgW}
+            height={heroImgH}
+            preserveAspectRatio="xMinYMin slice"
+          />
+        ) : (
+          <image
+            href="/create-flyer-images/topical/template_05/hero.jpg"
+            x={HERO_X}
+            y={HERO_Y}
+            width={HERO_W}
+            height={HERO_H}
+            preserveAspectRatio="xMidYMid slice"
+          />
+        )}
+      </g>
+
+      {/* Header logo band */}
+      {resolvedPlanLogo ? (
+        <image
+          href={resolvedPlanLogo}
+          x="42"
+          y="38"
+          width="128"
+          height="66"
+          preserveAspectRatio="xMidYMid meet"
+        />
+      ) : (
+        <text x="42" y="78" fill={NAVY} fontSize="17" fontWeight="700" fontFamily="'Playfair Display', Georgia, serif">
+          {truncateText(planName, 18)}
+        </text>
+      )}
+
+      {/* Divider + up to three additional logos (divider only when logos exist) */}
+      {additional.length > 0 && (
+        <>
+          <line x1="186" y1="54" x2="186" y2="96" stroke={DIVIDER} strokeWidth="1.2" />
+          {additional.map((logo, i) => {
+            const slotW = 376 / additional.length;
+            const cx = 198 + slotW * i + slotW / 2;
+            const w = Math.min(112, slotW - 8);
+            return (
+              <AdditionalLogo
+                key={`logo-${i}`}
+                src={logo}
+                x={cx - w / 2}
+                y={42}
+                width={w}
+                height={54}
+              />
+            );
+          })}
+        </>
+      )}
+
+      {/* Headline — last line in gold */}
+      {headlineLines.map((line, i) => (
+        <text
+          key={`hl-${i}`}
+          x="68"
+          y={199 + i * 52}
+          fill={i === goldLineIndex ? GOLD : NAVY}
+          fontSize="54"
+          fontWeight="500"
+          letterSpacing="-0.5"
+          fontFamily="'Playfair Display', Georgia, 'Times New Roman', serif"
+        >
+          {renderFormattedText(line)}
+        </text>
+      ))}
+
+      {/* Short rule under the headline */}
+      <line x1="68" y1="332" x2="127" y2="332" stroke={DIVIDER} strokeWidth="1.5" />
+
+      {/* Body copy */}
+      {bodyLines.length > 0 ? (
+        bodyLines.map((line, i) => (
+          <text
+            key={`b-${i}`}
+            x="68"
+            y={369 + i * 17.5}
+            fill={NAVY}
+            fontSize="16"
+            fontWeight="400"
+            fontFamily="'Poppins', 'Helvetica Neue', Arial, sans-serif"
+          >
+            {renderFormattedText(line)}
+          </text>
+        ))
+      ) : (
+        <text x="68" y="369" fill={NAVY} fontSize="16" fontWeight="400">
+          Explore your benefits and helpful resources.
+        </text>
+      )}
+
+      {/* Category / benefit line */}
+      {subtitleText && (
+        <text x="68" y="481" fill={NAVY} fontSize="16" fontWeight="500" fontFamily="'Poppins', 'Helvetica Neue', Arial, sans-serif">
+          {subtitleText}
+        </text>
+      )}
+
+      {/* Navy QR footer */}
+      <DarkFooter2
+        footerY={footerY}
+        totalHeight={682}
+        flyerQrUrl={flyerQrUrl}
+        flyerQrDataUrl={flyerQrDataUrl}
+        bgColor={bgColor}
+        flyerLanguage={flyerLanguage}
+      />
+
+      {/* Disclaimer on the cream band below the footer */}
+      {disclaimerLines.map((line, i) => (
+        <text key={`d-${i}`} x="68" y={700 + i * 11} fill={DIVIDER} fontSize="9.5" fontWeight="400">
+          {line}
+        </text>
+      ))}
+
+      {/* Powered by PLANtelligence */}
+      <text x="544" y="748" textAnchor="end" fill="#b9b8c4" fontSize="9" fontWeight="400" letterSpacing="0.5">
         powered by PLANtelligence®
       </text>
     </svg>

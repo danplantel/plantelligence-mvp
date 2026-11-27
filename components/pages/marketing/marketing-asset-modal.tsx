@@ -54,6 +54,7 @@ import {
   TopicalTemplate1,
   TopicalTemplate2,
   TopicalTemplate3,
+  TopicalTemplate4,
   MeetingTemplate1,
   type FlyerTemplateId,
   type FlyerImagePosition,
@@ -224,11 +225,17 @@ const TOPICAL_TEMPLATE_DEFAULTS: Record<string, FlyerTemplateDefaults> = {
     body: "People often forget to:/n- Add a beneficiary/n- Update an existing one/n- Review after major life events", 
     topic: "Beneficiary Designation",
     category: "Retirement" },
-  "TopicalTemplate3": { 
-    headline: "Invest in Yourself: /n Start Your Retirement Journey Today!", 
+  "TopicalTemplate3": {
+    headline: "Invest in Yourself: /n Start Your Retirement Journey Today!",
     subtitle: "Whether you're just starting your journey or looking to enhance your existing retirement strategy, every contribution counts.",
-    body: "- **It's Easy & Convenient**. Your contribution is automatically deducted from your pay and deposited into your account./n- **Employer Matching Contributions.** Take advantage of potential employer matching contributions\u2014it's like getting free money to boost your retirement savings even further.*/n- **Tax-Deferred Savings.** Money is put into your retirement account before federal (and most state) taxes. That means you don't pay taxes on it until you take the money out./n- **You're in Control.** Decide your contribution amount and investment strategy. Not sure how to invest? Our team at Waypoint Financial Advisors is here for you./n/n If you have any questions regarding your retirement future or how to get started in the plan, visit us by scanning the QR code below or call us at 877-757-3263. Para ayuda en español acerca del plan 401k, por favor llame al 877-757-3263", 
+    body: "- **It's Easy & Convenient**. Your contribution is automatically deducted from your pay and deposited into your account./n- **Employer Matching Contributions.** Take advantage of potential employer matching contributions\u2014it's like getting free money to boost your retirement savings even further.*/n- **Tax-Deferred Savings.** Money is put into your retirement account before federal (and most state) taxes. That means you don't pay taxes on it until you take the money out./n- **You're in Control.** Decide your contribution amount and investment strategy. Not sure how to invest? Our team at Waypoint Financial Advisors is here for you./n/n If you have any questions regarding your retirement future or how to get started in the plan, visit us by scanning the QR code below or call us at 877-757-3263. Para ayuda en español acerca del plan 401k, por favor llame al 877-757-3263",
     topic: "Start Your Retirement Journey",
+    category: "Retirement" },
+  "TopicalTemplate4": {
+    headline: "All Your Benefits./nOne Place.",
+    subtitle: "Retirement \u00b7 Health \u00b7 Life",
+    body: "Explore your benefits, discover helpful resources, and access plan documents and important contacts whenever you need them.",
+    topic: "All Your Benefits, One Place",
     category: "Retirement" },
 };
 
@@ -248,19 +255,26 @@ const TOPICAL_TEMPLATE_DEFAULTS_ES: Record<string, FlyerTemplateDefaults> = {
   "TopicalTemplate3": { 
     headline: "Invierta en Usted Mismo: /n ¡Comience Hoy Su Viaje de Jubilación!", 
     subtitle: "Ya sea que recién esté comenzando su viaje o buscando mejorar su estrategia de jubilación existente, cada contribución cuenta.",     
-    body: "- Es Fácil y Conveniente. Su contribución se deduce automáticamente de su pago y se deposita en su cuenta./n- Contribuciones de Igualación del Empleador. Aproveche las posibles contribuciones de igualación del empleador\u2014es como obtener dinero gratis para impulsar aún más sus ahorros de jubilación.*/n- Ahorros con Impuestos Diferidos. El dinero se coloca en su cuenta de jubilación antes de los impuestos federales (y la mayoría estatales). Eso significa que no paga impuestos hasta que retire el dinero./n- Usted Tiene el Control. Decida su monto de contribución y estrategia de inversión. ¿No sabe cómo invertir? Nuestro equipo en Waypoint Financial Advisors está aquí para usted./nSi tiene alguna pregunta sobre su futuro de jubilación o cómo comenzar en el plan, visítenos escaneando el código QR a continuación o llámenos al 877-757-3263.", 
+    body: "- Es Fácil y Conveniente. Su contribución se deduce automáticamente de su pago y se deposita en su cuenta./n- Contribuciones de Igualación del Empleador. Aproveche las posibles contribuciones de igualación del empleador\u2014es como obtener dinero gratis para impulsar aún más sus ahorros de jubilación.*/n- Ahorros con Impuestos Diferidos. El dinero se coloca en su cuenta de jubilación antes de los impuestos federales (y la mayoría estatales). Eso significa que no paga impuestos hasta que retire el dinero./n- Usted Tiene el Control. Decida su monto de contribución y estrategia de inversión. ¿No sabe cómo invertir? Nuestro equipo en Waypoint Financial Advisors está aquí para usted./nSi tiene alguna pregunta sobre su futuro de jubilación o cómo comenzar en el plan, visítenos escaneando el código QR a continuación o llámenos al 877-757-3263.",
     topic: "Comience Su Viaje de Jubilación",
+    category: "Retirement" },
+  "TopicalTemplate4": {
+    headline: "Todos Sus Beneficios./nUn Solo Lugar.",
+    subtitle: "Jubilación \u00b7 Salud \u00b7 Vida",
+    body: "Explore sus beneficios, descubra recursos útiles y acceda a documentos del plan y contactos importantes cuando los necesite.",
+    topic: "Todos Sus Beneficios en Un Solo Lugar",
     category: "Retirement" },
 };
 
 /** Flyer templates that support an optional custom header image. */
-const CUSTOM_FLYER_IMAGE_TEMPLATES = ["TopicalTemplate1", "TopicalTemplate2", "TopicalTemplate3", "MeetingTemplate1"];
+const CUSTOM_FLYER_IMAGE_TEMPLATES = ["TopicalTemplate1", "TopicalTemplate2", "TopicalTemplate3", "TopicalTemplate4", "MeetingTemplate1"];
 
 /** Destination image region (width × height) for each template's custom flyer image. */
 const FLYER_IMAGE_REGIONS: Record<string, { width: number; height: number }> = {
   TopicalTemplate1: { width: 247.5, height: 270 },
   TopicalTemplate2: { width: 612, height: 400 },
   TopicalTemplate3: { width: 612, height: 240 },
+  TopicalTemplate4: { width: 262, height: 382 },
   MeetingTemplate1: { width: 612, height: 260 },
 };
 
@@ -340,6 +354,8 @@ export default function MarketingAssetModal({
   const [selectedMeetingId, setSelectedMeetingId] = useState("");
   const [flyerImage, setFlyerImage] = useState<string>("");
   const [flyerImageLoading, setFlyerImageLoading] = useState(false);
+  // Extra header logos for templates with a logo band (TopicalTemplate4), max 3.
+  const [additionalLogos, setAdditionalLogos] = useState<string[]>([]);
   const [flyerImagePosition, setFlyerImagePosition] = useState<FlyerImagePosition>({ x: 50, y: 50 });
   const [flyerImageWidth, setFlyerImageWidth] = useState<number | null>(null);
   const [flyerImageHeight, setFlyerImageHeight] = useState<number | null>(null);
@@ -357,6 +373,7 @@ export default function MarketingAssetModal({
   });
   const attestationConfirmedRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const addLogoInputRef = useRef<HTMLInputElement>(null);
   const flyerPreviewRef = useRef<HTMLDivElement>(null);
   const [assetStatus, setAssetStatus] = useState<MarketingAssetStatus>("Draft");
   const [flyerCategory, setFlyerCategory] = useState("");
@@ -576,6 +593,8 @@ export default function MarketingAssetModal({
     setHeadline(processText(defaults.headline));
     setFlyerSubtitle(processText(defaults.subtitle));
     setBody(processText(defaults.body));
+    // The editorial template opens on its signature navy footer.
+    if (flyerTemplate === "TopicalTemplate4") setBgColor("#05091f");
   }, [flyerTemplate, flyerStep, flyerMode, resolvedType, flyerLanguage, editingAsset]);
 
   useEffect(() => {
@@ -656,6 +675,7 @@ export default function MarketingAssetModal({
         setMeetingLocation((d.meetingLocation as string) || "");
         setMeetingType((d.meetingType as string) || "");
         setFlyerImage((editingAsset.flyerImage as string) || (d.flyerImage as string) || "");
+        setAdditionalLogos(Array.isArray(d.additionalLogos) ? (d.additionalLogos as string[]).slice(0, 3) : []);
         setFlyerImagePosition((d.flyerImagePosition as FlyerImagePosition) || { x: 50, y: 50 });
         setFlyerImageWidth((d.flyerImageWidth as number) || null);
         setFlyerImageHeight((d.flyerImageHeight as number) || null);
@@ -684,6 +704,7 @@ export default function MarketingAssetModal({
       setMeetingType("");
       setSelectedMeetingId("");
       setFlyerImage("");
+      setAdditionalLogos([]);
       setFlyerImagePosition({ x: 50, y: 50 });
       setFlyerImageWidth(null);
       setFlyerImageHeight(null);
@@ -798,6 +819,32 @@ export default function MarketingAssetModal({
       });
     };
     reader.readAsDataURL(file);
+  };
+
+  /** Append one of the (up to three) extra header logos for TopicalTemplate4. */
+  const handleAddLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Reset so picking the same file again still fires onChange.
+    e.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = typeof reader.result === "string" ? reader.result : "";
+      if (!dataUrl) return;
+      setAdditionalLogos((prev) => (prev.length >= 3 ? prev : [...prev, dataUrl]));
+    };
+    reader.onerror = () => {
+      toast({
+        title: "Upload failed",
+        description: "Could not read the selected logo.",
+        variant: "destructive",
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeAdditionalLogo = (index: number) => {
+    setAdditionalLogos((prev) => prev.filter((_, i) => i !== index));
   };
 
   // When previewing/editing an existing flyer, always show the saved content
@@ -1038,6 +1085,7 @@ export default function MarketingAssetModal({
       data.meetingLocation = meetingLocation;
       data.meetingType = meetingType || null;
       data.flyerImage = flyerImage;
+      data.additionalLogos = additionalLogos.filter(Boolean).slice(0, 3);
       data.flyerImagePosition = flyerImagePosition;
       data.flyerImageWidth = flyerImageWidth;
       data.flyerImageHeight = flyerImageHeight;
@@ -1383,6 +1431,7 @@ export default function MarketingAssetModal({
                       planName,
                       planLogo,
                       organizationLogo,
+                      additionalLogos,
                       disclaimerText,
                       flyerSubtitle: defaults ? processText(defaults.subtitle) : "",
                       flyerTemplate: templateId as FlyerTemplateId,
@@ -1409,6 +1458,7 @@ export default function MarketingAssetModal({
                             switch (templateId) {
                               case "TopicalTemplate2": return <TopicalTemplate2 {...shared} />;
                               case "TopicalTemplate3": return <TopicalTemplate3 {...shared} />;
+                              case "TopicalTemplate4": return <TopicalTemplate4 {...shared} />;
                               default: return <TopicalTemplate1 {...shared} />;
                             }
                           })()}
@@ -1585,6 +1635,61 @@ export default function MarketingAssetModal({
               />
             </div>
           )}
+        </div>
+      )}
+
+      {/* Flyer: Additional header logos (TopicalTemplate4) — up to 3, divider auto-appears */}
+      {resolvedType === "flyer" && flyerStep >= 3 && !noFlyerTemplates && flyerTemplate === "TopicalTemplate4" && (
+        <div className="space-y-2">
+          <Label>
+            Additional header logos
+            <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">(optional · up to 3)</span>
+          </Label>
+          <div className="grid grid-cols-3 gap-2">
+            {[0, 1, 2].map((slot) => {
+              const logo = additionalLogos[slot];
+              return (
+                <div
+                  key={slot}
+                  className="flex h-16 flex-col items-center justify-center gap-1 rounded-md border border-dashed bg-muted/40 p-1"
+                >
+                  {logo ? (
+                    <>
+                      <img src={logo} alt={`Additional logo ${slot + 1}`} className="h-9 w-full object-contain" />
+                      <button
+                        type="button"
+                        className="text-[10px] font-medium text-red-500 hover:underline"
+                        onClick={() => removeAdditionalLogo(slot)}
+                      >
+                        Remove
+                      </button>
+                    </>
+                  ) : slot === additionalLogos.length ? (
+                    <button
+                      type="button"
+                      className="flex h-full w-full flex-col items-center justify-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={() => addLogoInputRef.current?.click()}
+                    >
+                      <ImageIcon className="h-4 w-4" />
+                      Add logo
+                    </button>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground/60">Empty</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            The plan sponsor logo sits on the left. A divider appears automatically once you add a logo here.
+          </p>
+          <input
+            ref={addLogoInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleAddLogoChange}
+          />
         </div>
       )}
 
@@ -2441,6 +2546,7 @@ export default function MarketingAssetModal({
                         planName={planName}
                         planLogo={planLogo}
                         organizationLogo={organizationLogo}
+                        additionalLogos={additionalLogos}
                         disclaimerText={disclaimerText}
                         flyerImage={flyerImage}
                         flyerImagePosition={flyerImagePosition}
@@ -2482,6 +2588,7 @@ export default function MarketingAssetModal({
                   planName={planName}
                   planLogo={planLogo}
                   organizationLogo={organizationLogo}
+                  additionalLogos={additionalLogos}
                   disclaimerText={disclaimerText}
                   flyerImage={flyerImage}
                   flyerImagePosition={flyerImagePosition}
@@ -3013,6 +3120,7 @@ function PreviewPane({
   planName,
   planLogo,
   organizationLogo,
+  additionalLogos,
   disclaimerText,
   flyerImage,
   flyerImagePosition,
@@ -3045,6 +3153,7 @@ function PreviewPane({
   planName: string;
   planLogo?: string;
   organizationLogo?: string;
+  additionalLogos?: string[];
   disclaimerText?: string;
   flyerImage?: string;
   flyerImagePosition?: FlyerImagePosition;
@@ -3167,6 +3276,7 @@ function PreviewPane({
           planName={planName}
           planLogo={planLogo}
           organizationLogo={organizationLogo}
+          additionalLogos={additionalLogos}
           disclaimerText={disclaimerText}
           flyerImage={flyerImage}
           flyerImagePosition={flyerImagePosition}

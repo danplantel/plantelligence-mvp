@@ -246,7 +246,7 @@ export function buildFlyerSvgFromData(
  * and render correctly when the SVG is painted to the canvas.
  */
 const FLYER_FONT_CSS_URL =
-  "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400..900&display=swap";
+  "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400..900&family=Playfair+Display:wght@500;600;700&family=Poppins:wght@300;400;500;600&display=swap";
 
 async function fetchEmbeddedFlyerFontCss(): Promise<string> {
   try {

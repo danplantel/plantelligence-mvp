@@ -14,6 +14,7 @@ import {
   TopicalTemplate1,
   TopicalTemplate2,
   TopicalTemplate3,
+  TopicalTemplate4,
   adjustColor,
   hasUserBullets,
   parseBodySegments,
@@ -68,6 +69,7 @@ describe("flyer template shared helpers", () => {
       TopicalTemplate1: "Retirement",
       TopicalTemplate2: "Retirement",
       TopicalTemplate3: "Retirement",
+      TopicalTemplate4: "Retirement",
       MeetingTemplate1: "Retirement",
     });
   });
@@ -173,6 +175,7 @@ describe("TemplateThumbnail", () => {
     "TopicalTemplate1",
     "TopicalTemplate2",
     "TopicalTemplate3",
+    "TopicalTemplate4",
     "MeetingTemplate1",
   ])("renders an SVG thumbnail for %s", (id) => {
     const { container } = render(<TemplateThumbnail id={id} bgColor="#23919c" />);
@@ -193,6 +196,7 @@ describe("FlyerPreview router", () => {
     ["TopicalTemplate1", TopicalTemplate1],
     ["TopicalTemplate2", TopicalTemplate2],
     ["TopicalTemplate3", TopicalTemplate3],
+    ["TopicalTemplate4", TopicalTemplate4],
     ["MeetingTemplate1", MeetingTemplate1],
   ] as const)("routes %s to its template", (template, Component) => {
     const { container, unmount } = render(
@@ -319,6 +323,56 @@ describe("TopicalTemplate1", () => {
     );
 
     expect(container.textContent).toContain("Custom disclosure line");
+  });
+});
+
+describe("TopicalTemplate4", () => {
+  it("renders the default editorial hero photo when no custom image is set", () => {
+    const { container } = render(
+      <TopicalTemplate4 {...baseProps} flyerTemplate="TopicalTemplate4" />,
+    );
+
+    expect(
+      container.querySelector(
+        'image[href="/create-flyer-images/topical/template_05/hero.jpg"]',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("only shows the header divider once additional logos are supplied", () => {
+    const { container, unmount } = render(
+      <TopicalTemplate4 {...baseProps} flyerTemplate="TopicalTemplate4" />,
+    );
+    expect(container.querySelector('line[x1="186"]')).not.toBeInTheDocument();
+    unmount();
+
+    const { container: withLogos } = render(
+      <TopicalTemplate4
+        {...baseProps}
+        flyerTemplate="TopicalTemplate4"
+        additionalLogos={["https://cdn.example/a.png", "https://cdn.example/b.png"]}
+      />,
+    );
+    expect(withLogos.querySelector('line[x1="186"]')).toBeInTheDocument();
+    expect(
+      withLogos.querySelector('image[href="https://cdn.example/a.png"]'),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the dark footer scan copy and QR placeholder", () => {
+    const { container } = render(
+      <TopicalTemplate4
+        {...baseProps}
+        flyerTemplate="TopicalTemplate4"
+        flyerQrUrl="https://hub.example/benefits"
+      />,
+    );
+
+    expect(container.textContent).toContain("Scan to explore");
+    expect(container.textContent).toContain("your Benefits Hub.");
+    expect(
+      container.querySelector('image[href*="api.qrserver.com"]'),
+    ).toBeInTheDocument();
   });
 });
 

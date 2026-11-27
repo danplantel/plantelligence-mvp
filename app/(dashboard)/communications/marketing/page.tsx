@@ -92,6 +92,7 @@ const TOPICAL_TEMPLATE_TOPICS: Record<string, string> = {
   TopicalTemplate1: "Retirement Savings From Former Employer",
   TopicalTemplate2: "Beneficiary Designation",
   TopicalTemplate3: "Start Your Retirement Journey",
+  TopicalTemplate4: "All Your Benefits, One Place",
 };
 
 /**
@@ -524,6 +525,7 @@ function MarketingAssetListAccordionItem({
                               planName: companyName ?? "",
                               planLogo: planLogo,
                               organizationLogo: advisorLogoUrl,
+                              additionalLogos: (d.additionalLogos as string[]) || [],
                               disclaimerText,
                               flyerImage,
                               flyerQrUrl,
