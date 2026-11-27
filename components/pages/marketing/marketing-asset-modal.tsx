@@ -25,13 +25,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   X,
   Eye,
   Calendar,
@@ -50,14 +43,15 @@ import { cn } from "@/lib/utils";
 import {
   FlyerPreview,
   FLYER_TEMPLATE_BENEFITS_CATEGORY,
-  TemplateThumbnail,
   TopicalTemplate1,
   TopicalTemplate2,
   TopicalTemplate3,
   TopicalTemplate4,
   MeetingTemplate1,
+  MeetingTemplate2,
   type FlyerTemplateId,
   type FlyerImagePosition,
+  type FlyerMeetingSession,
 } from "./flyer-templates";
 import { FlyerImagePositionEditor } from "./flyer-image-position-editor";
 
@@ -157,6 +151,9 @@ interface Meeting {
   format: string;
   platform?: string;
   meetingLink?: string;
+  benefitsCategory?: string | null;
+  customBenefitsCategory?: string | null;
+  hubLocation?: string | null;
   address?: string;
   city?: string;
   state?: string;
@@ -164,6 +161,16 @@ interface Meeting {
 }
 
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
+
+/** Format a meeting's "HH:mm" time as "h:mm AM/PM". */
+function formatMeetingTime12h(value: string): string {
+  if (!value) return "";
+  const [h, m] = value.split(":").map(Number);
+  if (isNaN(h) || isNaN(m)) return value;
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${h12}:${m.toString().padStart(2, "0")} ${ampm}`;
+}
 
 /**
  * Strip flyer text-formatting markers from a string for plain-text display
@@ -364,7 +371,7 @@ export default function MarketingAssetModal({
   const [meetingPlatform, setMeetingPlatform] = useState("");
   const [meetingLocation, setMeetingLocation] = useState("");
   const [meetingType, setMeetingType] = useState("");
-  const [selectedMeetingId, setSelectedMeetingId] = useState("");
+  const [selectedMeetingIds, setSelectedMeetingIds] = useState<string[]>([]);
   const [flyerImage, setFlyerImage] = useState<string>("");
   const [flyerImageLoading, setFlyerImageLoading] = useState(false);
   // Extra header logos for templates with a logo band (TopicalTemplate4), max 3.
@@ -543,21 +550,50 @@ export default function MarketingAssetModal({
     );
   }, [headlineMax]);
 
-  const isFlyerLocked = resolvedType === "flyer" && flyerMode === "meeting" && !selectedMeetingId;
+  /**
+   * Both modes now share a four-step rhythm:
+   *   1 Kind → 2 Meetings / Category → 3 Template → 4 Editor.
+   * Meeting flyers pick their template on step 2 (after meetings), so the
+   * editor always lives on step 3.
+   */
+  const isMeetingFlyer = resolvedType === "flyer" && flyerMode === "meeting";
+  const atMeetingTemplateStep = isMeetingFlyer && flyerStep === 2;
+  const atEditorStep = resolvedType === "flyer" && flyerStep === 3;
+
+  const selectedMeetingId = selectedMeetingIds[0] ?? "";
+  const isFlyerLocked =
+    isMeetingFlyer && selectedMeetingIds.length === 0 && !editingAsset;
 
   const selectedMeeting = useMemo(
     () => meetings.find((m) => m.id === selectedMeetingId),
     [meetings, selectedMeetingId],
   );
 
+  /** Selected meetings, formatted for MeetingTemplate2's session cards. */
+  const meetingSessions: FlyerMeetingSession[] = useMemo(
+    () =>
+      selectedMeetingIds
+        .map((id) => meetings.find((m) => m.id === id))
+        .filter((m): m is Meeting => !!m)
+        .map((m) => ({
+          id: m.id,
+          time: formatMeetingTime12h(m.time || ""),
+          location:
+            m.format === "In-Person"
+              ? [m.city, m.state].filter(Boolean).join(", ")
+              : m.platform || m.hubLocation || m.format || "",
+          date: m.date,
+        })),
+    [selectedMeetingIds, meetings, flyerLanguage],
+  );
+
   /** Template IDs available for the current flyer mode, filtered by the selected benefit category. */
   const availableFlyerTemplates: string[] = useMemo(() => {
     if (resolvedType !== "flyer") return [];
-    const modeTemplates =
-      flyerMode === "meeting"
-        ? Object.keys(MEETING_TEMPLATE_DEFAULTS)
-        : Object.keys(TOPICAL_TEMPLATE_DEFAULTS);
-    return modeTemplates.filter(
+    // Meeting templates are not filtered: a meeting's own benefit category
+    // (e.g. Group Health) must not hide the meeting designs.
+    if (flyerMode === "meeting") return Object.keys(MEETING_TEMPLATE_DEFAULTS);
+    return Object.keys(TOPICAL_TEMPLATE_DEFAULTS).filter(
       (id) =>
         !flyerCategory ||
         FLYER_TEMPLATE_BENEFITS_CATEGORY[id as FlyerTemplateId] === flyerCategory,
@@ -565,13 +601,11 @@ export default function MarketingAssetModal({
   }, [resolvedType, flyerMode, flyerCategory]);
 
   /** True when on the template step but no templates match the selected benefit category. */
-  const noFlyerTemplates =
-    resolvedType === "flyer" && flyerStep === 3 && availableFlyerTemplates.length === 0;
+  const noFlyerTemplates = atEditorStep && availableFlyerTemplates.length === 0;
 
   /** Whether the current flyer template supports an optional custom header image. */
   const showCustomImage =
-    resolvedType === "flyer" &&
-    flyerStep >= 3 &&
+    atEditorStep &&
     !noFlyerTemplates &&
     CUSTOM_FLYER_IMAGE_TEMPLATES.includes(flyerTemplate);
 
@@ -583,22 +617,26 @@ export default function MarketingAssetModal({
 
   // Keep the selected template valid for the current flyer mode and benefit category.
   useEffect(() => {
-    if (resolvedType !== "flyer" || flyerStep < 3) return;
+    // Keep a valid choice ready on both the meeting template step and the editor.
+    if (!atEditorStep && !atMeetingTemplateStep) return;
     if (availableFlyerTemplates.length > 0 && !availableFlyerTemplates.includes(flyerTemplate)) {
       setFlyerTemplate(availableFlyerTemplates[0]);
     } else if (availableFlyerTemplates.length === 0) {
       setFlyerTemplate("");
     }
-  }, [flyerMode, flyerStep, resolvedType, flyerTemplate, flyerCategory, availableFlyerTemplates]);
+  }, [atEditorStep, atMeetingTemplateStep, flyerTemplate, availableFlyerTemplates]);
 
   // Apply template defaults whenever user enters step 3 (template) or changes template/language.
   // Skipped when editing an existing flyer so the saved content is never overwritten by defaults.
   useEffect(() => {
-    if (resolvedType !== "flyer" || flyerStep < 3) return;
+    if (!atEditorStep) return;
     if (editingAsset) return;
+    // Meeting content comes from the selected meeting(s), never from the
+    // template's sample copy — switching designs must not overwrite it.
+    if (flyerMode === "meeting") return;
     const dict = flyerLanguage === "es"
-      ? (flyerMode === "meeting" ? MEETING_TEMPLATE_DEFAULTS_ES : TOPICAL_TEMPLATE_DEFAULTS_ES)
-      : (flyerMode === "meeting" ? MEETING_TEMPLATE_DEFAULTS : TOPICAL_TEMPLATE_DEFAULTS);
+      ? TOPICAL_TEMPLATE_DEFAULTS_ES
+      : TOPICAL_TEMPLATE_DEFAULTS;
     const defaults = dict[flyerTemplate];
     if (!defaults) return;
     // Convert /n to actual newlines for all fields so defaults can define line breaks
@@ -608,7 +646,7 @@ export default function MarketingAssetModal({
     setBody(processText(defaults.body));
     // The editorial template opens on its signature navy footer.
     if (flyerTemplate === "TopicalTemplate4") setBgColor("#05091f");
-  }, [flyerTemplate, flyerStep, flyerMode, resolvedType, flyerLanguage, editingAsset]);
+  }, [flyerTemplate, atEditorStep, flyerMode, flyerLanguage, editingAsset]);
 
   useEffect(() => {
     // A wider preview is a session preference, not part of the record — every
@@ -687,6 +725,9 @@ export default function MarketingAssetModal({
         setMeetingTime((d.meetingTime as string) || "");
         setMeetingLocation((d.meetingLocation as string) || "");
         setMeetingType((d.meetingType as string) || "");
+        setSelectedMeetingIds(
+          Array.isArray(d.meetingIds) ? (d.meetingIds as string[]).slice(0, 12) : [],
+        );
         setFlyerImage((editingAsset.flyerImage as string) || (d.flyerImage as string) || "");
         setAdditionalLogos(Array.isArray(d.additionalLogos) ? (d.additionalLogos as string[]).slice(0, 3) : []);
         setFlyerImagePosition((d.flyerImagePosition as FlyerImagePosition) || { x: 50, y: 50 });
@@ -715,7 +756,7 @@ export default function MarketingAssetModal({
       setMeetingPlatform("");
       setMeetingLocation("");
       setMeetingType("");
-      setSelectedMeetingId("");
+      setSelectedMeetingIds([]);
       setFlyerImage("");
       setAdditionalLogos([]);
       setFlyerImagePosition({ x: 50, y: 50 });
@@ -763,22 +804,27 @@ export default function MarketingAssetModal({
     }
   }, [resolvedType, flyerCategory, flyerTemplate, flyerMode, flyerLanguage]);
 
-  // Apply initial values when opening for edit (after reset above)
+  // Apply initial values when opening for edit (after reset above).
+  // Meeting flyers edit on step 2 (their template editor); topical flyers on 3.
   useEffect(() => {
     if (!open) return;
     if (initialFlyerStep !== undefined && assetType === "flyer") {
-      setFlyerStep(initialFlyerStep);
-      setFlyerMode("meeting");
+      const template =
+        (editingAsset?.data as Record<string, unknown> | undefined)?.flyerTemplate;
+      const isTopicalTemplate =
+        typeof template === "string" && template.startsWith("Topical");
+      setFlyerMode(isTopicalTemplate ? "topical" : "meeting");
+      setFlyerStep(3);
     }
     if (initialPortalElement !== undefined && assetType === "portal-notice") {
       setPortalElement(initialPortalElement);
     }
   }, [open]); // only when modal opens, not on every re-render
 
-  const handleMeetingSelect = (meetingId: string) => {
-    setSelectedMeetingId(meetingId);
-    const m = meetings.find((x) => x.id === meetingId);
-    if (m) {
+  /** Fill the primary meeting fields (content, date, location, category). */
+  const applyMeetingFields = useCallback(
+    (m: Meeting, ids: string[]) => {
+      setSelectedMeetingIds(ids);
       setHeadline(m.meeting);
       setBody(m.description || "");
       setFlyerSubtitle("Join us for this important session");
@@ -788,9 +834,20 @@ export default function MarketingAssetModal({
       setMeetingLocation(
         m.format === "In-Person"
           ? [m.city, m.state].filter(Boolean).join(", ") || "In-Person"
-          : m.platform || m.format || "Virtual"
+          : m.platform || m.hubLocation || m.format || "Virtual",
       );
       setMeetingType(m.meetingType || "");
+
+      // The meeting already carries its benefit category — use it for the
+      // disclaimer/footer copy instead of asking for a separate category step.
+      const category =
+        m.benefitsCategory === "Other"
+          ? m.customBenefitsCategory || "Other"
+          : m.benefitsCategory || "";
+      if (category) {
+        setFlyerCategory(category);
+        setDisclaimerText(getFlyerCategoryDisclaimer(category) || DEFAULT_DISCLAIMER);
+      }
 
       // Populate the QR code link with the meeting's virtual meeting link (if any)
       if (m.meetingLink && m.meetingLink.trim()) {
@@ -798,6 +855,21 @@ export default function MarketingAssetModal({
         setFlyerQrDataUrl("");
         setQrResult(null);
       }
+    },
+    [DEFAULT_DISCLAIMER],
+  );
+
+  /** Toggle one meeting in the multi-select list; the first stays the primary. */
+  const toggleMeeting = (meetingId: string) => {
+    const exists = selectedMeetingIds.includes(meetingId);
+    const next = exists
+      ? selectedMeetingIds.filter((id) => id !== meetingId)
+      : [...selectedMeetingIds, meetingId];
+    const primary = meetings.find((m) => m.id === next[0]);
+    if (primary) {
+      applyMeetingFields(primary, next);
+    } else {
+      setSelectedMeetingIds([]);
     }
   };
 
@@ -1097,6 +1169,8 @@ export default function MarketingAssetModal({
       data.meetingTime = meetingTime;
       data.meetingLocation = meetingLocation;
       data.meetingType = meetingType || null;
+      data.meetingIds = selectedMeetingIds;
+      data.meetingSessions = meetingSessions;
       data.flyerImage = flyerImage;
       data.additionalLogos = additionalLogos.filter(Boolean).slice(0, 3);
       data.flyerImagePosition = flyerImagePosition;
@@ -1213,7 +1287,7 @@ export default function MarketingAssetModal({
         <div className="space-y-6">
           {/* Progress indicator */}
           <div className="flex items-center gap-2">
-            {[0, 1, 2, 3].map((step) => (
+            {[0, 1, 2, 3].map((step, index, arr) => (
               <div key={step} className="flex items-center gap-2">
                 <div
                   className={cn(
@@ -1227,7 +1301,7 @@ export default function MarketingAssetModal({
                 >
                   {flyerStep > step ? "✓" : step + 1}
                 </div>
-                {step < 3 && (
+                {index < arr.length - 1 && (
                   <div
                     className={cn(
                       "h-0.5 w-6 transition-colors",
@@ -1283,8 +1357,8 @@ export default function MarketingAssetModal({
             </div>
           )}
 
-          {/* Step 1: Benefit Category */}
-          {flyerStep === 1 && (
+          {/* Step 1 (Topical): Benefit Category */}
+          {flyerStep === 1 && !isMeetingFlyer && (
             <div className="space-y-4">
               <div>
                 <Label className="text-base font-semibold">Select a benefit category</Label>
@@ -1317,41 +1391,17 @@ export default function MarketingAssetModal({
             </div>
           )}
 
-          {/* Step 2: Meeting or Topic input */}
-          {flyerStep === 2 && flyerMode === "meeting" && (
+          {/* Step 1 (Meeting): Select one or more meetings */}
+          {flyerStep === 1 && isMeetingFlyer && (
             <div className="space-y-4">
               <div>
-                <Label className="text-base font-semibold">Select a meeting</Label>
-                <p className="text-xs text-muted-foreground mt-1">Choose the meeting to base your flyer on.</p>
+                <Label className="text-base font-semibold">Select meeting(s)</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Choose one or more meetings. The first selected meeting becomes the primary date, time and location.
+                </p>
               </div>
-              <Select
-                value={selectedMeetingId}
-                onValueChange={(v) => { handleMeetingSelect(v); }}
-                disabled={meetings.length === 0}
-              >
-                <SelectTrigger id="meeting-select" className="w-full" disabled={meetings.length === 0}>
-                  <SelectValue placeholder="Select Meeting" />
-                </SelectTrigger>
-                <SelectContent>
-                  {meetings.length === 0 && (
-                    <div className="px-3 py-4 text-center text-sm text-muted-foreground">No meetings found for this plan.</div>
-                  )}
-                  {meetings.length > 0 && (
-                    <SelectItem value="">Select Meeting</SelectItem>
-                  )}
-                  {meetings.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      <span className="flex items-center gap-2">
-                        <span>{m.meeting}</span>
-                        <span className="text-[10px] text-muted-foreground">{formatUsDate(m.date)}</span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
 
-              {/* No meetings state — guide the advisor to create one */}
-              {meetings.length === 0 && (
+              {meetings.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 px-4 py-5 text-center space-y-3">
                   <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-muted">
                     <Calendar className="h-5 w-5 text-muted-foreground" />
@@ -1378,38 +1428,173 @@ export default function MarketingAssetModal({
                     Create a Meeting
                   </Button>
                 </div>
+              ) : (
+                <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                  {meetings.map((m) => {
+                    const checked = selectedMeetingIds.includes(m.id);
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => toggleMeeting(m.id)}
+                        className={cn(
+                          "flex w-full items-start gap-3 rounded-xl border-2 p-3 text-left transition-all",
+                          checked
+                            ? "border-[var(--accent-blue)] bg-[var(--accent-blue)]/5"
+                            : "border-gray-200 bg-white hover:border-[var(--accent-blue)]/40 dark:border-gray-700 dark:bg-gray-900",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] font-bold",
+                            checked
+                              ? "border-[var(--accent-blue)] bg-[var(--accent-blue)] text-white"
+                              : "border-gray-300 dark:border-gray-600",
+                          )}
+                        >
+                          {checked ? "✓" : ""}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            {m.meeting}
+                          </span>
+                          <span className="mt-0.5 block text-xs text-muted-foreground">
+                            {formatUsDate(m.date)}
+                            {m.time ? ` · ${formatMeetingTime12h(m.time)}` : ""}
+                            {m.meetingType ? ` · ${m.meetingType}` : ""}
+                          </span>
+                          {(m.customBenefitsCategory || m.benefitsCategory) && (
+                            <span className="mt-0.5 block text-[11px] text-muted-foreground/80">
+                              {m.customBenefitsCategory || m.benefitsCategory}
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               )}
-              {selectedMeeting && (
-                <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground space-y-1">
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="h-3 w-3" />
-                    {formatUsDate(selectedMeeting.date)}
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="h-3 w-3" />
-                    {selectedMeeting.time ? (() => {
-                      const [h, m] = selectedMeeting.time.split(":").map(Number);
-                      if (!isNaN(h) && !isNaN(m)) {
-                        const ampm = h >= 12 ? "PM" : "AM";
-                        const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-                        return `${h12}:${m.toString().padStart(2, "0")} ${ampm}`;
-                      }
-                      return selectedMeeting.time;
-                    })() : ""}
-                    {selectedMeeting.timezone && ` (${selectedMeeting.timezone})`}
-                  </div>
-                  {selectedMeeting.format === "In-Person" && selectedMeeting.city && (
-                    <div className="flex items-center gap-1.5">
-                      <MapPin className="h-3 w-3" />
-                      {selectedMeeting.city}, {selectedMeeting.state}
-                    </div>
-                  )}
-                  <div className="text-[11px] opacity-70">{selectedMeeting.duration}</div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => setFlyerStep(0)}>Back</Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={selectedMeetingIds.length === 0}
+                  onClick={() => setFlyerStep(2)}
+                >
+                  Next
+                </Button>
+                {selectedMeetingIds.length > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    {selectedMeetingIds.length} selected
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Step 2 (Meeting): Select a template */}
+          {atMeetingTemplateStep && (
+            <div className="space-y-4">
+              <div>
+                <Label className="text-base font-semibold">Select a template</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Choose the meeting design you want to build the flyer with.
+                </p>
+              </div>
+              {availableFlyerTemplates.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 px-4 py-5 text-center space-y-2">
+                  <p className="text-sm font-medium text-foreground">No meeting templates available</p>
+                  <p className="text-xs text-muted-foreground">Go back and try again.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  {availableFlyerTemplates.map((name) => {
+                    const defaults = (
+                      flyerLanguage === "es" ? MEETING_TEMPLATE_DEFAULTS_ES : MEETING_TEMPLATE_DEFAULTS
+                    )[name];
+                    const active = flyerTemplate === name;
+                    return (
+                      <button
+                        key={name}
+                        type="button"
+                        onClick={() => setFlyerTemplate(name)}
+                        className={cn(
+                          "flex flex-col gap-2 rounded-xl border-2 bg-white p-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg dark:bg-gray-900",
+                          active
+                            ? "border-[var(--accent-blue)] ring-1 ring-[var(--accent-blue)]/30"
+                            : "border-transparent hover:border-[var(--accent-blue)]/40",
+                        )}
+                      >
+                        <div className="aspect-[3/4] w-full overflow-hidden rounded-lg border bg-gray-50 dark:bg-gray-800">
+                          {name === "MeetingTemplate2" ? (
+                            <MeetingTemplate2
+                              headline={headline}
+                              body={body}
+                              ctaText=""
+                              bgColor={bgColor}
+                              startDate={startDate}
+                              planName={planName}
+                              planLogo={planLogo}
+                              organizationLogo={organizationLogo}
+                              additionalLogos={additionalLogos}
+                              disclaimerText={disclaimerText}
+                              flyerSubtitle={flyerSubtitle}
+                              meetingTime={meetingTime}
+                              meetingLocation={meetingLocation}
+                              meetingType={meetingType}
+                              meetingSessions={meetingSessions}
+                              flyerQrUrl={flyerQrUrl}
+                              flyerQrDataUrl={flyerQrDataUrl}
+                              flyerTemplate={name as FlyerTemplateId}
+                              flyerLanguage={flyerLanguage}
+                              sid={name}
+                              svgCls="w-full h-auto"
+                            />
+                          ) : (
+                            <MeetingTemplate1
+                              headline={headline}
+                              body={body}
+                              ctaText=""
+                              bgColor={bgColor}
+                              startDate={startDate}
+                              planName={planName}
+                              planLogo={planLogo}
+                              organizationLogo={organizationLogo}
+                              disclaimerText={disclaimerText}
+                              flyerSubtitle={flyerSubtitle}
+                              meetingTime={meetingTime}
+                              meetingLocation={meetingLocation}
+                              flyerQrUrl={flyerQrUrl}
+                              flyerQrDataUrl={flyerQrDataUrl}
+                              flyerTemplate={name as FlyerTemplateId}
+                              flyerLanguage={flyerLanguage}
+                              sid={name}
+                              svgCls="w-full h-auto"
+                            />
+                          )}
+                        </div>
+                        <span className="text-center text-[11px] font-semibold text-gray-800 dark:text-gray-200">
+                          {defaults?.topic || name}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
               <div className="flex items-center gap-2 pt-2">
-                <Button type="button" variant="outline" size="sm" onClick={() => setFlyerStep(1)}>Back</Button>
-                <Button type="button" size="sm" disabled={!selectedMeetingId} onClick={() => setFlyerStep(3)}>Next</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setFlyerStep(1)}>
+                  Back
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={!flyerTemplate}
+                  onClick={() => setFlyerStep(3)}
+                >
+                  Next
+                </Button>
               </div>
             </div>
           )}
@@ -1487,13 +1672,19 @@ export default function MarketingAssetModal({
             </div>
           )}
 
-          {/* Step 3: Template */}
-          {flyerStep === 3 && (
+          {/* Step 4 (Editor): build the flyer from the chosen template */}
+          {atEditorStep && (
             <div className="space-y-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <Label className="text-base font-semibold">Customize Template</Label>
-                  <p className="text-xs text-muted-foreground mt-1">Select the design for your flyer.</p>
+                  <Label className="text-base font-semibold">
+                    {isMeetingFlyer ? "Create Flyer" : "Customize Template"}
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {isMeetingFlyer
+                      ? "Fine-tune the content for your flyer below."
+                      : "Select the design for your flyer."}
+                  </p>
                 </div>
                 <Button
                   type="button"
@@ -1514,6 +1705,23 @@ export default function MarketingAssetModal({
                     There are no flyer templates matching &ldquo;{flyerCategory || "All Benefits"}&rdquo;. Go back and choose a different benefit category.
                   </p>
                 </div>
+              ) : isMeetingFlyer ? (
+                <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  <span>
+                    Template:{" "}
+                    <span className="font-semibold text-foreground">
+                      {(flyerLanguage === "es" ? MEETING_TEMPLATE_DEFAULTS_ES : MEETING_TEMPLATE_DEFAULTS)[flyerTemplate]?.topic ||
+                        flyerTemplate}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-[var(--accent-blue)] hover:underline"
+                    onClick={() => setFlyerStep(2)}
+                  >
+                    Change
+                  </button>
+                </div>
               ) : (
                 <select
                   className="flex h-9 w-full rounded-md border border-input bg-white dark:bg-gray-800 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -1522,8 +1730,8 @@ export default function MarketingAssetModal({
                     const next = e.target.value;
                     setFlyerTemplate(next);
                     const dict = flyerLanguage === "es"
-                      ? (flyerMode === "meeting" ? MEETING_TEMPLATE_DEFAULTS_ES : TOPICAL_TEMPLATE_DEFAULTS_ES)
-                      : (flyerMode === "meeting" ? MEETING_TEMPLATE_DEFAULTS : TOPICAL_TEMPLATE_DEFAULTS);
+                      ? TOPICAL_TEMPLATE_DEFAULTS_ES
+                      : TOPICAL_TEMPLATE_DEFAULTS;
                     const defaults = dict[next];
                     if (defaults) {
                       setHeadline(defaults.headline);
@@ -1534,8 +1742,8 @@ export default function MarketingAssetModal({
                 >
                   {availableFlyerTemplates.map((name) => {
                     const dict = flyerLanguage === "es"
-                      ? (flyerMode === "meeting" ? MEETING_TEMPLATE_DEFAULTS_ES : TOPICAL_TEMPLATE_DEFAULTS_ES)
-                      : (flyerMode === "meeting" ? MEETING_TEMPLATE_DEFAULTS : TOPICAL_TEMPLATE_DEFAULTS);
+                      ? TOPICAL_TEMPLATE_DEFAULTS_ES
+                      : TOPICAL_TEMPLATE_DEFAULTS;
                     const defaults = dict[name];
                     return (
                       <option key={name} value={name}>
@@ -1546,12 +1754,14 @@ export default function MarketingAssetModal({
                 </select>
               )}
 
-              {/* Meeting info or Topic summary — shown below template selector */}
-              {!noFlyerTemplates && flyerMode === "meeting" && selectedMeeting && (
+              {/* Selected meeting summary */}
+              {!noFlyerTemplates && isMeetingFlyer && selectedMeeting && (
                 <div className="rounded-lg border bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground space-y-1.5">
                   <div className="flex items-center gap-1.5 font-medium text-foreground">
                     <Calendar className="h-3.5 w-3.5" />
-                    {selectedMeeting.meeting}
+                    {selectedMeetingIds.length > 1
+                      ? `${selectedMeetingIds.length} meetings selected`
+                      : selectedMeeting.meeting}
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Calendar className="h-3 w-3" />
@@ -1652,7 +1862,7 @@ export default function MarketingAssetModal({
       )}
 
       {/* Flyer: Additional header logos (TopicalTemplate4) — up to 3, divider auto-appears */}
-      {resolvedType === "flyer" && flyerStep >= 3 && !noFlyerTemplates && flyerTemplate === "TopicalTemplate4" && (
+      {atEditorStep && !noFlyerTemplates && flyerTemplate === "TopicalTemplate4" && (
         <div className="space-y-2">
           <Label>
             Additional header logos
@@ -1707,7 +1917,7 @@ export default function MarketingAssetModal({
       )}
 
       {/* Flyer: Language toggle */}
-      {resolvedType === "flyer" && flyerStep >= 3 && !noFlyerTemplates && (
+      {atEditorStep && !noFlyerTemplates && (
         <div className="flex items-center justify-end gap-2">
           <span className="text-xs text-muted-foreground font-medium">Language:</span>
           <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
@@ -1741,7 +1951,7 @@ export default function MarketingAssetModal({
 
       {/* Flyer: Headline (auto-populated from meeting/topic) */}
       {resolvedType === "flyer" && (
-        flyerStep < 3 || noFlyerTemplates ? null : (
+        !atEditorStep || noFlyerTemplates ? null : (
           <div className="space-y-1.5">
             <Label htmlFor="headline">
               Headline
@@ -1753,7 +1963,7 @@ export default function MarketingAssetModal({
       )}
 
       {/* Flyer subtitle */}
-      {resolvedType === "flyer" && flyerStep >= 3 && !noFlyerTemplates && (
+      {atEditorStep && !noFlyerTemplates && (
         <div className="space-y-1.5">
           <Label htmlFor="subtitle">
             Subtitle
@@ -1764,7 +1974,7 @@ export default function MarketingAssetModal({
       )}
 
       {/* Flyer body */}
-      {resolvedType === "flyer" && flyerStep >= 3 && !noFlyerTemplates && (
+      {atEditorStep && !noFlyerTemplates && (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <Label htmlFor="body">
@@ -1792,7 +2002,7 @@ export default function MarketingAssetModal({
       )}
 
       {/* Flyer: QR code */}
-      {resolvedType === "flyer" && flyerStep >= 3 && !noFlyerTemplates && (
+      {atEditorStep && !noFlyerTemplates && (
         <div className="space-y-1.5">
           <Label htmlFor="flyerQrUrl">
             QR code link
@@ -1822,7 +2032,7 @@ export default function MarketingAssetModal({
       )}
 
       {/* Flyer: Footer Color */}
-      {resolvedType === "flyer" && flyerStep >= 3 && !noFlyerTemplates && (
+      {atEditorStep && !noFlyerTemplates && (
         <div className="space-y-1.5">
           <Label>Footer color</Label>
           <div className="flex gap-2">
@@ -1853,7 +2063,7 @@ export default function MarketingAssetModal({
       )}
 
       {/* Flyer: Disclaimer text */}
-      {resolvedType === "flyer" && flyerStep >= 3 && !noFlyerTemplates && (
+      {atEditorStep && !noFlyerTemplates && (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <Label htmlFor="disclaimer">
@@ -1876,9 +2086,14 @@ export default function MarketingAssetModal({
 
       {/* Flyer: Step 4 Back button — pinned to the bottom of the details form so the
           advisor can always return to the meeting/topic selection without scrolling back up */}
-      {resolvedType === "flyer" && flyerStep === 3 && !noFlyerTemplates && (
+      {atEditorStep && !noFlyerTemplates && (
         <div className="flex items-center gap-2 pt-2">
-          <Button type="button" variant="outline" size="sm" onClick={() => setFlyerStep(2)}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setFlyerStep(2)}
+          >
             Back
           </Button>
         </div>
@@ -2549,7 +2764,7 @@ export default function MarketingAssetModal({
                       <PreviewPane
                         assetType={assetType}
                         portalElement={portalElement}
-                        flyerStep={flyerStep}
+                        flyerStep={atEditorStep || atMeetingTemplateStep ? 3 : 0}
                         headline={previewHeadline}
                         body={previewBody}
                         ctaText={ctaText}
@@ -2570,6 +2785,7 @@ export default function MarketingAssetModal({
                         meetingTime={meetingTime}
                         meetingLocation={meetingLocation}
                         meetingType={meetingType}
+                        meetingSessions={meetingSessions}
                         flyerSubtitle={flyerSubtitle}
                         flyerTemplate={flyerTemplate}
                         flyerLanguage={flyerLanguage}
@@ -2592,7 +2808,7 @@ export default function MarketingAssetModal({
                 <PreviewPane
                   assetType={assetType}
                   portalElement={portalElement}
-                  flyerStep={flyerStep}
+                  flyerStep={atEditorStep || atMeetingTemplateStep ? 3 : 0}
                   headline={previewHeadline}
                   body={previewBody}
                   ctaText={ctaText}
@@ -2611,6 +2827,7 @@ export default function MarketingAssetModal({
                   meetingTime={meetingTime}
                   meetingLocation={meetingLocation}
                   meetingType={meetingType}
+                  meetingSessions={meetingSessions}
                   flyerSubtitle={flyerSubtitle}
                   flyerTemplate={flyerTemplate}
                   flyerLanguage={flyerLanguage}
@@ -2631,7 +2848,7 @@ export default function MarketingAssetModal({
         <div className="flex items-center justify-between gap-3 border-t px-6 py-4 shrink-0">
           <div className="flex items-center gap-3">
             {/* Only offer the PDF on the final (customize) step — earlier steps have no flyer yet. */}
-            {resolvedType === "flyer" && !previewOnly && flyerStep === 3 && !noFlyerTemplates && (
+            {resolvedType === "flyer" && !previewOnly && atEditorStep && !noFlyerTemplates && (
               <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={isFlyerLocked} className="gap-1.5">
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -3147,6 +3364,7 @@ function PreviewPane({
   meetingTime,
   meetingLocation,
   meetingType,
+  meetingSessions,
   flyerSubtitle,
   flyerTemplate,
   flyerLanguage,
@@ -3181,6 +3399,7 @@ function PreviewPane({
   meetingTime?: string;
   meetingLocation?: string;
   meetingType?: string;
+  meetingSessions?: FlyerMeetingSession[];
   flyerSubtitle?: string;
   flyerTemplate?: string;
   flyerLanguage?: "en" | "es";
@@ -3305,6 +3524,7 @@ function PreviewPane({
           meetingTime={meetingTime}
           meetingLocation={meetingLocation}
           meetingType={meetingType}
+          meetingSessions={meetingSessions}
           flyerSubtitle={flyerSubtitle}
           flyerTemplate={flyerTemplate as FlyerTemplateId}
           flyerLanguage={flyerLanguage}

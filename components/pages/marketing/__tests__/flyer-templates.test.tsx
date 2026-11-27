@@ -425,6 +425,29 @@ describe("MeetingTemplate2", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders session cards when multiple meetings are selected", () => {
+    const { container } = render(
+      <MeetingTemplate2
+        {...baseProps}
+        flyerTemplate="MeetingTemplate2"
+        headline="Open Enrollment"
+        body="Body copy that should be hidden for a multi-session flyer"
+        meetingSessions={[
+          { id: "a", time: "10:00 AM", location: "Main Conference Room" },
+          { id: "b", time: "2:00 PM", location: "East Wing" },
+        ]}
+      />,
+    );
+
+    expect(container.textContent).toContain("2 SESSIONS \u2014 PICK ONE");
+    expect(container.textContent).toContain("10:00 AM");
+    expect(container.textContent).toContain("East Wing");
+    expect(container.textContent).toContain("SESSION 1");
+    expect(container.textContent).toContain("SESSION 2");
+    // The long-form body is replaced by the session grid.
+    expect(container.textContent).not.toContain("Body copy that should be hidden");
+  });
+
   it("uses the supplied logos for the header band and renders benefit chips", () => {
     const { container } = render(
       <MeetingTemplate2

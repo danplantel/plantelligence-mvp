@@ -533,6 +533,7 @@ function MarketingAssetListAccordionItem({
                               meetingTime,
                               meetingLocation,
                               meetingType: (d.meetingType as string) || "",
+                              meetingSessions: (d.meetingSessions as FlyerPreviewProps["meetingSessions"]) || [],
                               flyerSubtitle,
                               flyerTemplate: flyerTemplate as FlyerPreviewProps["flyerTemplate"],
                               flyerLanguage,

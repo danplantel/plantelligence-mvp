@@ -162,19 +162,23 @@ describe("MarketingAssetModal", () => {
     expect(screen.queryByText("Download PDF")).not.toBeInTheDocument();
   });
 
-  it("advances a meeting flyer to the benefit category step", async () => {
+  it("advances a meeting flyer to the meeting selection step", async () => {
     const user = userEvent.setup();
     renderModal();
 
     await user.click(screen.getByText("Meeting Based"));
 
-    expect(screen.getByText("Select a benefit category")).toBeInTheDocument();
+    // Meeting flyers skip the benefit-category step: step 2 is meetings.
+    expect(screen.getByText("Select meeting(s)")).toBeInTheDocument();
+    expect(screen.queryByText("Select a benefit category")).not.toBeInTheDocument();
   });
 
-  it("jumps directly to the template step with initialFlyerStep", () => {
+  it("jumps directly to the flyer editor with initialFlyerStep", () => {
     renderModal({ initialFlyerStep: 3 });
 
-    expect(screen.getByText("Customize Template")).toBeInTheDocument();
+    expect(
+      screen.getByText("Fine-tune the content for your flyer below."),
+    ).toBeInTheDocument();
     expect(screen.getByText("Download PDF")).toBeInTheDocument();
   });
 
@@ -238,11 +242,27 @@ describe("MarketingAssetModal", () => {
 
   it("reports the first missing flyer field before saving", async () => {
     const user = userEvent.setup();
-    renderModal({ initialFlyerStep: 3 });
+    renderModal({
+      initialFlyerStep: 3,
+      editingAsset: {
+        id: "flyer-1",
+        type: "flyer",
+        status: "Draft",
+        createdAt: "2026-01-01T00:00:00Z",
+        headline: "Headline",
+        body: "Body",
+        data: {
+          flyerTemplate: "MeetingTemplate1",
+          flyerCategory: "Retirement",
+          flyerSubtitle: "Subtitle",
+          disclaimerText: "Disclosure",
+        },
+      },
+    });
 
-    await user.click(screen.getByRole("button", { name: /Save Flyer/ }));
+    await user.click(screen.getByRole("button", { name: /Update Flyer/ }));
 
-    // Step 3 prefills the template defaults, so the QR link is the first gap.
+    // Everything is present except the QR link.
     expect(mocks.toast).toHaveBeenCalledWith(
       expect.objectContaining({
         title: "Validation error",

@@ -10,6 +10,19 @@ export interface FlyerImagePosition {
   y: number;
 }
 
+/** One meeting/session shown on multi-session meeting flyers. */
+export interface FlyerMeetingSession {
+  id?: string;
+  /** Card label, e.g. "SESSION 1". */
+  label?: string;
+  /** Pre-formatted time, e.g. "10:00 AM". */
+  time?: string;
+  /** Location / room / platform. */
+  location?: string;
+  /** ISO date for the session. */
+  date?: string;
+}
+
 export interface FlyerPreviewProps {
   headline: string;
   body: string;
@@ -34,6 +47,8 @@ export interface FlyerPreviewProps {
   meetingLocation?: string;
   /** Meeting type (e.g. "Open Enrollment Meeting") — used by MeetingTemplate2's eyebrow. */
   meetingType?: string;
+  /** Multiple selected meetings — MeetingTemplate2 renders them as session cards. */
+  meetingSessions?: FlyerMeetingSession[];
   flyerSubtitle?: string;
   flyerTemplate: FlyerTemplateId;
   flyerLanguage?: "en" | "es";
@@ -1659,7 +1674,7 @@ export function MeetingTemplate2(allProps: FlyerPreviewProps & { sid?: string; s
   const {
     headline, body, bgColor, startDate, planName, planLogo,
     flyerImage, flyerImagePosition, flyerQrUrl, flyerQrDataUrl,
-    meetingTime, meetingLocation, meetingType,
+    meetingTime, meetingLocation, meetingType, meetingSessions,
     organizationLogo, additionalLogos, disclaimerText, flyerLanguage,
     benefitsCategory, sid = "", svgCls,
   } = allProps;
@@ -1716,12 +1731,22 @@ export function MeetingTemplate2(allProps: FlyerPreviewProps & { sid?: string; s
     (meetingType || (isEs ? "Reuni\u00f3n de Beneficios" : "Open Enrollment Meeting")).toUpperCase(),
     40,
   );
-  const timeTitle = formattedTime || (isEs ? "Hora por confirmar" : "Time TBD");
+
+  // Two or more selected meetings are laid out as session cards; a single
+  // meeting keeps the large time/location/details treatment.
+  const sessions = (meetingSessions ?? []).filter((s) => !!s).slice(0, 4);
+  const multiSessions = sessions.length > 1;
+  const sessionTitle = isEs
+    ? `${sessions.length} SESIONES \u2014 ELIJA UNA`
+    : `${sessions.length} SESSIONS \u2014 PICK ONE`;
+  const timeTitle = multiSessions
+    ? sessionTitle
+    : formattedTime || (isEs ? "Hora por confirmar" : "Time TBD");
   const locationText = truncateText(
     meetingLocation || (isEs ? "Ubicaci\u00f3n por confirmar" : "Location TBD"),
     46,
   );
-  const bodyLines = body ? wrapText(body, 62).slice(0, 3) : [];
+  const bodyLines = !multiSessions && body ? wrapText(body, 62).slice(0, 3) : [];
 
   const chipSource: Array<{ kind: "retirement" | "health" | "life"; label: string }> = isEs
     ? [
@@ -1896,32 +1921,74 @@ export function MeetingTemplate2(allProps: FlyerPreviewProps & { sid?: string; s
         </g>
       )}
 
-      {/* Benefit chips */}
-      {chipItems.map((chip) => (
-        <g key={chip.label}>
-          <rect
-            x={chip.x}
-            y="534"
-            width={chip.width}
-            height="34"
-            rx="17"
-            fill="none"
-            stroke={GOLD}
-            strokeWidth="1.2"
-          />
-          <BenefitGlyph kind={chip.kind} cx={chip.x + 18} cy={551} color={GOLD} />
-          <text
-            x={chip.x + 34}
-            y="551"
-            dominantBaseline="middle"
-            fill={NAVY}
-            fontSize="14"
-            fontWeight="600"
-          >
-            {chip.label}
-          </text>
+      {/* Session cards (multiple meetings) */}
+      {multiSessions && (
+        <g>
+          {sessions.map((session, i) => {
+            const gap = 10;
+            const totalW = 532;
+            const cardW = (totalW - (sessions.length - 1) * gap) / sessions.length;
+            const cardX = 40 + i * (cardW + gap);
+            const compact = sessions.length > 3;
+            const label = session.label || `${isEs ? "SESI\u00d3N" : "SESSION"} ${i + 1}`;
+            return (
+              <g key={session.id ?? i}>
+                <rect
+                  x={cardX}
+                  y="472"
+                  width={cardW}
+                  height="64"
+                  rx="7"
+                  fill="none"
+                  stroke={GOLD}
+                  strokeWidth="1.2"
+                />
+                <text x={cardX + 10} y="488" fill={GOLD} fontSize="9" fontWeight="700" letterSpacing="1">
+                  {truncateText(label.toUpperCase(), compact ? 14 : 20)}
+                </text>
+                <text x={cardX + 10} y="506" fill={NAVY} fontSize={compact ? 11.5 : 14} fontWeight="800">
+                  {truncateText(session.time || (isEs ? "Hora por confirmar" : "Time TBD"), compact ? 16 : 20)}
+                </text>
+                <text x={cardX + 10} y="522" fill="#39404d" fontSize={compact ? 9 : 10.5}>
+                  {truncateText(session.location || "", compact ? 18 : 26)}
+                </text>
+              </g>
+            );
+          })}
         </g>
-      ))}
+      )}
+
+      {/* Benefit chips */}
+      {chipItems.map((chip) => {
+        const chipTop = multiSessions ? 546 : 534;
+        const chipH = multiSessions ? 32 : 34;
+        const chipMid = chipTop + chipH / 2;
+        return (
+          <g key={chip.label}>
+            <rect
+              x={chip.x}
+              y={chipTop}
+              width={chip.width}
+              height={chipH}
+              rx={chipH / 2}
+              fill="none"
+              stroke={GOLD}
+              strokeWidth="1.2"
+            />
+            <BenefitGlyph kind={chip.kind} cx={chip.x + 18} cy={chipMid} color={GOLD} />
+            <text
+              x={chip.x + 34}
+              y={chipMid}
+              dominantBaseline="middle"
+              fill={NAVY}
+              fontSize="14"
+              fontWeight="600"
+            >
+              {chip.label}
+            </text>
+          </g>
+        );
+      })}
 
       {/* Navy QR footer */}
       <DarkFooter2
